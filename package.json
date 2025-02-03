@@ -13,10 +13,10 @@
     "dev": "node --loader ts-node/esm src/index.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist",
-    "test:basic": "node --loader ts-node/esm scripts/test-basic-operations.ts",
-    "test:encryption": "node --loader ts-node/esm scripts/test-encryption.ts",
-    "test:bundles": "node --loader ts-node/esm scripts/test-bundles.ts",
-    "test:api": "node --loader ts-node/esm scripts/test-api.ts",
+    "test:basic": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' node --loader ts-node/esm scripts/test-basic-operations.ts",
+    "test:encryption": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' node --loader ts-node/esm scripts/test-encryption.ts",
+    "test:bundles": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' node --loader ts-node/esm scripts/test-bundles.ts",
+    "test:api": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' node --loader ts-node/esm scripts/test-api.ts",
     "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api"
   },
   "keywords": [
