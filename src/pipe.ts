@@ -74,13 +74,20 @@ export class PipeProtocol {
   public async fetchRecord(cid: string, scope: Scope): Promise<PipeRecord | null> {
     const content = await this.ipfs.fetch(cid, scope);
     if (!content) return null;
+
+    // If the content is a string and starts with 'encrypted(', it's an encrypted record
+    const isEncrypted = typeof content === 'string' && content.startsWith('encrypted(');
+    
     return {
       cid,
       content,
       type: 'data',
       scope,
       accessPolicy: { hiddenFromLLM: false },
-      encryption: { enabled: false }
+      encryption: { 
+        enabled: isEncrypted,
+        ciphertext: isEncrypted
+      }
     };
   }
 

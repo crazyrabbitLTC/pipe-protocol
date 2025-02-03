@@ -1,6 +1,7 @@
 import { PipeProtocol } from '../src/pipe';
 import { createApi } from '../src/api';
 import { AddressInfo } from 'net';
+import fetch from 'node-fetch';
 
 async function testApi() {
   console.log('Starting API test...\n');
@@ -17,7 +18,7 @@ async function testApi() {
 
     // Helper function to make API requests
     async function makeRequest(method: string, path: string, body?: any) {
-      const options: RequestInit = {
+      const options: any = {
         method,
         headers: {
           'Content-Type': 'application/json'
@@ -31,7 +32,7 @@ async function testApi() {
       const response = await fetch(`http://localhost:${port}${path}`, options);
       return {
         status: response.status,
-        data: await response.json()
+        data: await response.json().catch(() => null)
       };
     }
 
@@ -52,7 +53,7 @@ async function testApi() {
       data: publishResponse.data
     });
 
-    const publishedCid = publishResponse.data.cid;
+    const publishedCid = publishResponse.data?.cid;
 
     // Test 2: Fetch the published record
     console.log('\nTest 2: Fetching the published record...');
@@ -63,7 +64,7 @@ async function testApi() {
     });
 
     // Verify content matches
-    const contentMatches = JSON.stringify(fetchResponse.data.content) === JSON.stringify(record.content);
+    const contentMatches = JSON.stringify(fetchResponse.data?.content) === JSON.stringify(record.content);
     console.log('Content matches original:', contentMatches);
 
     // Test 3: Get node status
@@ -91,7 +92,7 @@ async function testApi() {
     });
 
     // Verify the published CID is in the pinned list
-    const isPinned = pinnedResponse.data.includes(publishedCid);
+    const isPinned = pinnedResponse.data?.includes(publishedCid);
     console.log('Published CID is pinned:', isPinned);
 
     // Test 6: Publish a bundle
@@ -139,7 +140,7 @@ async function testApi() {
     });
 
     // Invalid scope
-    const invalidScopeResponse = await makeRequest('GET', '/fetch/${publishedCid}/invalid');
+    const invalidScopeResponse = await makeRequest('GET', `/fetch/${publishedCid}/invalid`);
     console.log('Invalid scope fetch response:', {
       status: invalidScopeResponse.status,
       error: invalidScopeResponse.data
