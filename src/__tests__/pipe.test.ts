@@ -1,11 +1,16 @@
 import { PipeProtocol } from '../pipe';
 import { Tool } from '../types';
+import { mockDataStore } from './mocks/ipfs-http-client';
 
 describe('PipeProtocol', () => {
   let pipe: PipeProtocol;
 
   beforeEach(() => {
-    pipe = new PipeProtocol();
+    mockDataStore.clear();
+    pipe = new PipeProtocol({
+      localNodeEndpoint: 'http://localhost:5001',
+      publicNodeEndpoint: 'http://localhost:5001'
+    });
   });
 
   afterEach(async () => {
@@ -59,8 +64,8 @@ describe('PipeProtocol', () => {
     it('should publish and fetch records', async () => {
       const record = {
         content: { message: 'Test Record' },
-        type: 'data',
-        scope: 'private',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -76,10 +81,14 @@ describe('PipeProtocol', () => {
     it('should handle encrypted records', async () => {
       const record = {
         content: { message: 'Secret Data' },
-        type: 'data',
-        scope: 'private',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
-        encryption: { enabled: true }
+        encryption: { 
+          enabled: true,
+          keyRef: 'test-key',
+          method: 'AES-GCM'
+        }
       };
 
       const published = await pipe.publishRecord(record);
@@ -104,15 +113,15 @@ describe('PipeProtocol', () => {
               message: { type: 'string' }
             }
           },
-          type: 'schema',
-          scope: 'private',
+          type: 'schema' as const,
+          scope: 'private' as const,
           accessPolicy: { hiddenFromLLM: false },
           encryption: { enabled: false }
         },
         dataRecord: {
           content: { message: 'Test Bundle' },
-          type: 'data',
-          scope: 'private',
+          type: 'data' as const,
+          scope: 'private' as const,
           accessPolicy: { hiddenFromLLM: false },
           encryption: { enabled: false }
         }
@@ -181,7 +190,7 @@ describe('PipeProtocol', () => {
       });
 
       expect(result.cid).toBeDefined();
-      expect(result.schemaCid).toBeUndefined();
+      expect(result.schemaCid).toBeNull();
 
       const storedResult = await pipe.fetchRecord(result.cid, 'public');
       expect(storedResult?.content).toEqual({ result: 'test' });

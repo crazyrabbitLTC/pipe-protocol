@@ -9,7 +9,12 @@ const mockRandomValues = new Uint8Array([
 const originalCrypto = global.crypto;
 global.crypto = {
   ...originalCrypto,
-  getRandomValues: () => mockRandomValues
+  getRandomValues: <T extends ArrayBufferView | null>(array: T): T => {
+    if (array instanceof Uint8Array) {
+      array.set(mockRandomValues.subarray(0, array.length));
+    }
+    return array;
+  }
 };
 
 // Clean up function to restore original crypto

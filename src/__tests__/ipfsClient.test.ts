@@ -1,11 +1,17 @@
 import { IpfsClient } from '../ipfsClient';
 import { PipeRecord } from '../types';
+import { mockDataStore, mockPinnedCids } from './mocks/ipfs-http-client';
 
 describe('IpfsClient', () => {
   let ipfsClient: IpfsClient;
 
-  beforeEach(() => {
-    ipfsClient = new IpfsClient();
+  beforeEach(async () => {
+    mockDataStore.clear();
+    mockPinnedCids.clear();
+    ipfsClient = new IpfsClient({
+      endpoint: 'http://localhost:5001'
+    });
+    await ipfsClient.init('http://localhost:5001', 'http://localhost:5001');
   });
 
   afterEach(async () => {
@@ -15,9 +21,9 @@ describe('IpfsClient', () => {
   describe('publish and fetch', () => {
     it('should successfully publish and fetch data', async () => {
       const record: PipeRecord = {
-        content: 'Hello, World!',
-        type: 'data',
-        scope: 'private',
+        content: 'test data',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -27,20 +33,15 @@ describe('IpfsClient', () => {
 
       const fetched = await ipfsClient.fetch(published.cid!, 'private');
       expect(fetched).toBeDefined();
-      expect(fetched?.content).toBe(record.content);
+      expect(fetched?.content).toBe('test data');
     });
 
     it('should handle JSON data', async () => {
-      const data = {
-        name: 'John Doe',
-        age: 30,
-        email: 'john@example.com'
-      };
-
+      const data = { message: 'Hello, World!' };
       const record: PipeRecord = {
         content: data,
-        type: 'data',
-        scope: 'private',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -55,9 +56,9 @@ describe('IpfsClient', () => {
 
     it('should handle different scopes', async () => {
       const record: PipeRecord = {
-        content: 'Public Data',
-        type: 'data',
-        scope: 'public',
+        content: 'test data',
+        type: 'data' as const,
+        scope: 'public' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -67,16 +68,16 @@ describe('IpfsClient', () => {
 
       const fetched = await ipfsClient.fetch(published.cid!, 'public');
       expect(fetched).toBeDefined();
-      expect(fetched?.content).toBe(record.content);
+      expect(fetched?.content).toBe('test data');
     });
   });
 
   describe('pin management', () => {
     it('should pin and unpin content', async () => {
       const record: PipeRecord = {
-        content: 'Pinned Data',
-        type: 'data',
-        scope: 'private',
+        content: 'test data',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -96,9 +97,9 @@ describe('IpfsClient', () => {
   describe('replication', () => {
     it('should replicate content between scopes', async () => {
       const record: PipeRecord = {
-        content: 'Replicated Data',
-        type: 'data',
-        scope: 'private',
+        content: 'test data',
+        type: 'data' as const,
+        scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
@@ -108,7 +109,7 @@ describe('IpfsClient', () => {
 
       const fetched = await ipfsClient.fetch(published.cid!, 'public');
       expect(fetched).toBeDefined();
-      expect(fetched?.content).toBe(record.content);
+      expect(fetched?.content).toBe('test data');
     });
   });
 
@@ -121,49 +122,47 @@ describe('IpfsClient', () => {
     it('should return node info', async () => {
       const info = await ipfsClient.getNodeInfo('private');
       expect(info).toBeDefined();
+      expect(info.id).toBe('test-node');
     });
 
     it('should return storage metrics', async () => {
       const metrics = await ipfsClient.getStorageMetrics('private');
       expect(metrics).toBeDefined();
-      expect(metrics.repoSize).toBeDefined();
-      expect(metrics.storageMax).toBeDefined();
-      expect(metrics.numObjects).toBeDefined();
+      expect(metrics.repoSize).toBe(1000);
+      expect(metrics.storageMax).toBe(10000);
+      expect(metrics.numObjects).toBe(0); // Should be 0 since we clear the store before each test
     });
 
-    it('should return node configuration', () => {
-      const config = ipfsClient.getConfiguration('private');
+    it('should return node configuration', async () => {
+      const config = await ipfsClient.getConfiguration('private');
       expect(config).toBeDefined();
-      expect(config.scope).toBe('private');
+      expect(config.endpoint).toBe('http://localhost:5001');
     });
   });
 
   describe('error handling', () => {
     it('should handle non-existent CID', async () => {
-      const nonExistentCid = 'QmNonExistent';
-      const fetched = await ipfsClient.fetch(nonExistentCid, 'private');
-      expect(fetched).toBeNull();
+      const result = await ipfsClient.fetch('QmNonExistent', 'private');
+      expect(result).toBeNull();
     });
 
     it('should handle invalid scope', async () => {
       const record: PipeRecord = {
-        content: 'Test Data',
-        type: 'data',
-        scope: 'private',
+        content: 'test data',
+        type: 'data' as const,
+        scope: 'invalid' as any,
         accessPolicy: { hiddenFromLLM: false },
         encryption: { enabled: false }
       };
 
-      const published = await ipfsClient.publish(record);
-      // @ts-ignore - Testing invalid scope
-      await expect(ipfsClient.fetch(published.cid!, 'invalid')).rejects.toThrow();
+      await expect(ipfsClient.publish(record)).rejects.toThrow();
     });
 
     it('should handle stop and restart', async () => {
       await ipfsClient.stop();
       expect(ipfsClient.getStatus()).toBe(false);
 
-      ipfsClient = new IpfsClient();
+      await ipfsClient.init('http://localhost:5001', 'http://localhost:5001');
       expect(ipfsClient.getStatus()).toBe(true);
     });
   });

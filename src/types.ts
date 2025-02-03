@@ -4,15 +4,16 @@ export interface EncryptionInfo {
   keyRef?: string;
   nonce?: string;
   ciphertext?: boolean;
+  contentType?: 'string' | 'json';
 }
 
 export interface AccessPolicy {
-  hiddenFromLLM?: boolean;
+  hiddenFromLLM: boolean;
   allowedTools?: string[];
   allowedUsers?: string[];
 }
 
-export type Scope = "private" | "public" | "machine" | "user";
+export type Scope = 'private' | 'public' | 'machine' | 'user';
 
 export interface PipeRecord {
   cid?: string;
@@ -29,10 +30,17 @@ export interface PipeBundle {
   timestamp?: string;
 }
 
-export interface PipeConfig {
+export interface PipeOptions {
   localNodeEndpoint?: string;
   publicNodeEndpoint?: string;
   hooks?: PipeHook[];
+}
+
+export interface PipeIpfsOptions {
+  endpoint?: string;
+  options?: Record<string, any>;
+  localNodeEndpoint?: string;
+  publicNodeEndpoint?: string;
 }
 
 export interface PipeHook {
@@ -60,4 +68,9 @@ export interface Tool {
     description?: string;
   };
   call: (args: any) => Promise<any>;
+}
+
+export interface IpfsNodeConfig {
+  endpoint?: string;
+  options?: Record<string, any>;
 } 

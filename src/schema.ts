@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AccessPolicy, EncryptionInfo } from './types';
+import { AccessPolicy, EncryptionInfo, PipeRecord, PipeBundle } from './types';
 
 const EncryptionSchema: z.ZodSchema<EncryptionInfo> = z.object({
   enabled: z.boolean(),
@@ -10,25 +10,29 @@ const EncryptionSchema: z.ZodSchema<EncryptionInfo> = z.object({
 });
 
 const AccessPolicySchema: z.ZodSchema<AccessPolicy> = z.object({
-  hiddenFromLLM: z.boolean().optional(),
+  hiddenFromLLM: z.boolean(),
   allowedTools: z.array(z.string()).optional(),
-  allowedUsers: z.array(z.string()).optional(),
+  allowedUsers: z.array(z.string()).optional()
 });
 
-export const PipeRecordSchema = z.object({
+const PipeRecordSchema = z.object({
+  cid: z.string().optional(),
+  content: z.any(),
   type: z.enum(['data', 'schema']),
-  cid: z.string().nullable().optional(),
-  content: z.any().nullable().optional(),
   scope: z.enum(['private', 'public', 'machine', 'user']),
-  pinned: z.boolean().optional(),
-  encryption: EncryptionSchema.optional(),
-  accessPolicy: AccessPolicySchema.optional(),
-  metadata: z.record(z.any()).optional(),
+  accessPolicy: AccessPolicySchema,
+  encryption: z.object({
+    enabled: z.boolean(),
+    method: z.string().optional(),
+    keyRef: z.string().optional(),
+    ciphertext: z.boolean().optional()
+  })
 });
 
-export const PipeBundleSchema = z.object({
+const PipeBundleSchema = z.object({
   schemaRecord: PipeRecordSchema,
   dataRecord: PipeRecordSchema,
-  combinedScope: z.enum(['private', 'public', 'machine', 'user']),
-  timestamp: z.string().datetime(),
-}); 
+  timestamp: z.string().optional()
+});
+
+export { AccessPolicySchema, PipeRecordSchema, PipeBundleSchema }; 

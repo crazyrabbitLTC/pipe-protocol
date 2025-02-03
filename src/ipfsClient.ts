@@ -1,45 +1,63 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client';
-import { PipeRecord, PipeConfig, Scope } from './types';
+import { PipeRecord, Scope, PipeIpfsOptions } from './types';
 import { config } from 'dotenv';
-import { CID } from 'multiformats/cid';
-import * as raw from 'multiformats/codecs/raw';
-import { sha256 } from 'multiformats/hashes/sha2';
-import { MemoryBlockstore } from 'blockstore-core';
 config();
 
-interface PipeIpfsOptions {
-  localNodeEndpoint?: string;
-  publicNodeEndpoint?: string;
-}
-
 export class IpfsClient {
-  private localNode: IPFSHTTPClient;
-  private publicNode: IPFSHTTPClient;
+  private localNode?: IPFSHTTPClient;
+  private publicNode?: IPFSHTTPClient;
   private isRunning: boolean = false;
-  private machineNode?: IPFSHTTPClient;
-  private userNode?: IPFSHTTPClient;
-  private localPinnedCids: Set<string>;
-  private publicPinnedCids: Set<string>;
-  private machinePinnedCids: Set<string>;
-  private userPinnedCids: Set<string>;
 
-  constructor(config: PipeConfig = {}) {
-    const localEndpoint = config.localNodeEndpoint || 'http://localhost:5001';
-    const publicEndpoint = config.publicNodeEndpoint || 'https://ipfs.infura.io:5001';
+  constructor(config: PipeIpfsOptions = {}) {
+    const { endpoint, options } = config;
+    
+    if (endpoint) {
+      this.localNode = create({ url: endpoint, ...options });
+      this.publicNode = create({ url: endpoint, ...options });
+    }
+  }
 
-    this.localNode = create({ url: localEndpoint });
-    this.publicNode = create({ url: publicEndpoint });
+  public async init(localNodeEndpoint?: string, publicNodeEndpoint?: string): Promise<void> {
+    if (localNodeEndpoint) {
+      this.localNode = create({ url: localNodeEndpoint });
+    }
+    if (publicNodeEndpoint) {
+      this.publicNode = create({ url: publicNodeEndpoint });
+    }
     this.isRunning = true;
 
-    console.log('Creating pinned CID sets...');
-    this.localPinnedCids = new Set();
-    this.publicPinnedCids = new Set();
-    this.machinePinnedCids = new Set();
-    this.userPinnedCids = new Set();
+    // Test connections
+    try {
+      if (!this.localNode || !this.publicNode) {
+        throw new Error('IPFS nodes not initialized');
+      }
+      await Promise.all([
+        this.localNode.id(),
+        this.publicNode.id()
+      ]);
+    } catch (error) {
+      console.error('Failed to initialize IPFS nodes:', error);
+      throw error;
+    }
   }
 
   private getNodeForScope(scope: Scope): IPFSHTTPClient {
-    return scope === 'private' || scope === 'machine' ? this.localNode : this.publicNode;
+    if (!this.isRunning) {
+      throw new Error('IPFS client is not running');
+    }
+
+    switch (scope) {
+      case 'private':
+      case 'machine':
+        if (!this.localNode) throw new Error('Local node not initialized');
+        return this.localNode;
+      case 'public':
+      case 'user':
+        if (!this.publicNode) throw new Error('Public node not initialized');
+        return this.publicNode;
+      default:
+        throw new Error(`Invalid scope: ${scope}`);
+    }
   }
 
   async publish(record: PipeRecord): Promise<PipeRecord> {
@@ -50,16 +68,12 @@ export class IpfsClient {
     const node = this.getNodeForScope(record.scope);
     
     try {
-      // Add content to IPFS
-      const content = typeof record.content === 'string' 
-        ? record.content 
-        : JSON.stringify(record.content);
-        
-      const result = await node.add(content);
+      // Store the entire record
+      const result = await node.add(JSON.stringify(record));
       
       return {
         ...record,
-        cid: result.path,
+        cid: result.path
       };
     } catch (error) {
       console.error('Error publishing to IPFS:', error);
@@ -80,27 +94,27 @@ export class IpfsClient {
         chunks.push(chunk);
       }
       
-      const content = Buffer.concat(chunks).toString();
+      const rawContent = Buffer.concat(chunks).toString();
+      let record: PipeRecord;
       
-      return {
-        cid,
-        content: this.tryParseJSON(content),
-        type: 'data',
-        scope,
-        accessPolicy: { hiddenFromLLM: false },
-        encryption: { enabled: false }
-      };
+      try {
+        record = JSON.parse(rawContent);
+      } catch {
+        // If we can't parse the content as a record, assume it's just the content
+        record = {
+          cid,
+          content: rawContent,
+          type: 'data',
+          scope,
+          accessPolicy: { hiddenFromLLM: false },
+          encryption: { enabled: false }
+        };
+      }
+      
+      return record;
     } catch (error) {
       console.error('Error fetching from IPFS:', error);
       return null;
-    }
-  }
-
-  private tryParseJSON(str: string): any {
-    try {
-      return JSON.parse(str);
-    } catch {
-      return str;
     }
   }
 
@@ -128,10 +142,8 @@ export class IpfsClient {
   async stop(): Promise<void> {
     if (this.isRunning) {
       try {
-        await Promise.all([
-          this.localNode.stop(),
-          this.publicNode.stop()
-        ]);
+        if (this.localNode) await this.localNode.stop();
+        if (this.publicNode) await this.publicNode.stop();
         this.isRunning = false;
       } catch (error) {
         console.error('Error stopping IPFS client:', error);
@@ -144,7 +156,7 @@ export class IpfsClient {
     return this.isRunning;
   }
 
-  getNodeInfo(scope: Scope): any {
+  async getNodeInfo(scope: Scope): Promise<any> {
     const node = this.getNodeForScope(scope);
     return node.id();
   }

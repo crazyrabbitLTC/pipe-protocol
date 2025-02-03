@@ -2,125 +2,140 @@ import express from 'express';
 import { PipeProtocol } from './pipe';
 import { PipeRecord, PipeBundle, Scope } from './types';
 
-export function createApi(pipeProtocol: PipeProtocol) {
+export function createPipeAPI(pipe: PipeProtocol) {
   const app = express();
   app.use(express.json());
 
   app.post('/publish', async (req, res) => {
     try {
-      const record = await pipeProtocol.publishRecord(req.body as PipeRecord);
-      res.json(record);
+      const record: PipeRecord = req.body;
+      const published = await pipe.publishRecord(record);
+      res.json(published);
     } catch (error) {
-      console.error("Error publishing record:", error);
-      res.status(500).send("Failed to publish record.");
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.post('/publish-bundle', async (req, res) => {
     try {
-      const bundle = await pipeProtocol.publishBundle(req.body as PipeBundle);
-      res.json(bundle);
-    } catch(error) {
-      console.error("Error publishing bundle:", error);
-      res.status(500).send("Failed to publish bundle.");
+      const bundle: PipeBundle = req.body;
+      const published = await pipe.publishBundle(bundle);
+      res.json(published);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.get('/fetch', async (req, res) => {
     try {
       const { cid, scope } = req.query;
-      const data = await pipeProtocol.fetchRecord(cid as string, scope as Scope);
-      res.json(data);
-    } catch(error) {
-      console.error("Error fetching record:", error);
-      res.status(500).send("Failed to fetch record.");
+      if (!cid || !scope) {
+        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      }
+      const record = await pipe.fetchRecord(cid as string, scope as Scope);
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.post('/pin', async (req, res) => {
     try {
       const { cid, scope } = req.body;
-      await pipeProtocol.pin(cid as string, scope as Scope);
-      res.status(200).send('Pinned successfully');
+      if (!cid || !scope) {
+        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      }
+      await pipe.pin(cid, scope as Scope);
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error pinning record:", error);
-      res.status(500).send("Failed to pin record.");
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.post('/unpin', async (req, res) => {
     try {
       const { cid, scope } = req.body;
-      await pipeProtocol.unpin(cid as string, scope as Scope);
-      res.status(200).send('Unpinned successfully');
-    } catch(error) {
-      console.error("Error unpinning record:", error);
-      res.status(500).send("Failed to unpin record.");
+      if (!cid || !scope) {
+        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      }
+      await pipe.unpin(cid, scope as Scope);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.post('/replicate', async (req, res) => {
     try {
       const { cid, fromScope, toScope } = req.body;
-      await pipeProtocol.replicate(cid as string, fromScope as Scope, toScope as Scope);
-      res.status(200).send("Replicated successfully");
-    } catch(error) {
-      console.error("Error replicating record:", error);
-      res.status(500).send("Failed to replicate record.");
+      if (!cid || !fromScope || !toScope) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+      await pipe.replicate(cid, fromScope as Scope, toScope as Scope);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
-  app.get('/node-status', async (req, res) => {
+  app.get('/node-status', async (_req, res) => {
     try {
-      const status = await pipeProtocol.getStatus();
+      const status = await pipe.getStatus();
       res.json(status);
     } catch (error) {
-      console.error('Error getting node status:', error);
-      res.status(500).send("Failed to fetch node status.");
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.get('/node-info', async (req, res) => {
     try {
       const { scope } = req.query;
-      const info = await pipeProtocol.getNodeInfo(scope as Scope);
+      if (!scope) {
+        return res.status(400).json({ error: 'Missing scope parameter' });
+      }
+      const info = await pipe.getNodeInfo(scope as Scope);
       res.json(info);
-    } catch(error) {
-      console.error('Error getting node info:', error);
-      res.status(500).send("Failed to fetch node info.");
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.get('/storage-metrics', async (req, res) => {
     try {
       const { scope } = req.query;
-      const metrics = await pipeProtocol.getStorageMetrics(scope as Scope);
+      if (!scope) {
+        return res.status(400).json({ error: 'Missing scope parameter' });
+      }
+      const metrics = await pipe.getStorageMetrics(scope as Scope);
       res.json(metrics);
-    } catch(error) {
-      console.error('Error getting storage metrics:', error);
-      res.status(500).send("Failed to fetch storage metrics");
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.get('/pinned-cids', async(req, res) => {
     try {
       const { scope } = req.query;
-      const pins = await pipeProtocol.getPinnedCids(scope as Scope);
-      res.json(pins);
-    } catch(error) {
-      console.error('Error getting pinned CIDs:', error);
-      res.status(500).send('Failed to fetch pinned cids');
+      if (!scope) {
+        return res.status(400).json({ error: 'Missing scope parameter' });
+      }
+      const cids = await pipe.getPinnedCids(scope as Scope);
+      res.json(cids);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.get('/configuration', async (req, res) => {
     try {
       const { scope } = req.query;
-      const config = await pipeProtocol.getConfiguration(scope as Scope);
+      if (!scope) {
+        return res.status(400).json({ error: 'Missing scope parameter' });
+      }
+      const config = await pipe.getConfiguration(scope as Scope);
       res.json(config);
-    } catch(error) {
-      console.error('Error getting configuration:', error);
-      res.status(500).send('Failed to fetch configuration');
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
