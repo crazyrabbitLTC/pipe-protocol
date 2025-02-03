@@ -75,22 +75,20 @@ export class PipeProtocol {
     const content = await this.ipfs.fetch(cid, scope);
     if (!content) return null;
 
-    // If the content is a string and starts with 'encrypted(', it's an encrypted record
-    const isEncrypted = typeof content === 'string' && content.startsWith('encrypted(');
+    // If the content is a string and starts with 'encrypted:', it's an encrypted record
+    const isEncrypted = typeof content === 'string' && content.startsWith('encrypted:');
     
-    // Try to extract encryption method and keyRef from the content
-    let method = undefined;
-    let keyRef = undefined;
-    
-    if (isEncrypted) {
-      try {
-        const match = content.match(/encrypted\((.*), (.*), (.*)\)/);
-        if (match) {
-          method = match[2];
-          keyRef = match[3];
-        }
-      } catch (error) {
-        console.warn('Failed to extract encryption details:', error);
+    // Get encryption info if the content is encrypted
+    let encryptionInfo = { enabled: false };
+    if (isEncrypted && typeof content === 'string') {
+      const info = this.encryption.getEncryptionInfo(content);
+      if (info) {
+        encryptionInfo = {
+          enabled: true,
+          method: info.method,
+          keyRef: info.keyRef,
+          ciphertext: true
+        };
       }
     }
     
@@ -100,12 +98,7 @@ export class PipeProtocol {
       type: 'data',
       scope,
       accessPolicy: { hiddenFromLLM: false },
-      encryption: { 
-        enabled: isEncrypted,
-        ciphertext: isEncrypted,
-        method,
-        keyRef
-      }
+      encryption: encryptionInfo
     };
   }
 
