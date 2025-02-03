@@ -116,8 +116,13 @@ export class IpfsClient {
           throw new Error("User node not initialized");
         }
         return { node: this.userNode, pinnedCids: this.userPinnedCids };
-      default:
+      case 'private':
+        if (!this.localNode) {
+          throw new Error("Local node not initialized");
+        }
         return { node: this.localNode, pinnedCids: this.localPinnedCids };
+      default:
+        throw new Error(`Invalid scope: ${scope}`);
     }
   }
 
@@ -197,13 +202,35 @@ export class IpfsClient {
     console.log(`Starting replication from ${fromScope} to ${toScope} for CID: ${cidStr}`);
     
     try {
+      // Validate scopes
+      if (!['private', 'public', 'machine', 'user'].includes(fromScope)) {
+        throw new Error(`Invalid source scope: ${fromScope}`);
+      }
+      if (!['private', 'public', 'machine', 'user'].includes(toScope)) {
+        throw new Error(`Invalid target scope: ${toScope}`);
+      }
+
       // Get source and target nodes
-      const { node: sourceNode } = await this.getNode(fromScope);
+      const { node: sourceNode, pinnedCids: sourcePinnedCids } = await this.getNode(fromScope);
       const { node: targetNode } = await this.getNode(toScope);
+
+      // Check if the content exists in the source scope
+      if (!sourcePinnedCids.has(cidStr)) {
+        throw new Error('Content not found in source scope');
+      }
 
       // Get the content from source
       const cid = CID.parse(cidStr);
-      const bytes = await sourceNode.blockstore.get(cid);
+      let bytes: Uint8Array | undefined;
+      try {
+        bytes = await sourceNode.blockstore.get(cid);
+      } catch (error) {
+        throw new Error('Content not found in source scope');
+      }
+
+      if (!bytes || bytes.length === 0) {
+        throw new Error('Content not found in source scope');
+      }
 
       // Store in target
       await targetNode.blockstore.put(cid, bytes);
@@ -217,7 +244,7 @@ export class IpfsClient {
       if (error instanceof Error) {
         console.error('Error stack:', error.stack);
       }
-      throw error;
+      throw error instanceof Error ? error : new Error('Unknown error during replication');
     }
   }
 

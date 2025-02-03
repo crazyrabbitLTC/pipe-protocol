@@ -20,6 +20,17 @@ describe('IpfsClient', () => {
       expect(status.userNode).toBe(true);
       expect(status.publicNode).toBe(true);
     });
+
+    it('should initialize with custom endpoints', async () => {
+      const customClient = new IpfsClient({
+        localNodeEndpoint: 'http://localhost:5001',
+        publicNodeEndpoint: 'https://ipfs.example.com'
+      });
+      const status = await customClient.getStatus();
+      expect(status.localNode).toBe(true);
+      expect(status.publicNode).toBe(true);
+      await customClient.stop();
+    });
   });
 
   describe('Publishing and Fetching', () => {
@@ -44,6 +55,30 @@ describe('IpfsClient', () => {
 
       const fetchedContent = await client.fetch(publishedRecord.cid, 'private');
       expect(fetchedContent).toEqual(testRecord.content);
+    });
+
+    it('should handle publishing without pinning', async () => {
+      const testRecord: PipeRecord = {
+        type: 'data',
+        content: { test: 'unpinned-data' },
+        scope: 'private',
+        pinned: false
+      };
+
+      const publishedRecord = await client.publish(testRecord);
+      expect(publishedRecord.cid).toBeDefined();
+
+      const pinnedCids = await client.getPinnedCids('private');
+      expect(pinnedCids).not.toContain(publishedRecord.cid);
+    });
+
+    it('should fail to fetch non-existent CID', async () => {
+      const nonExistentCid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
+      await expect(client.fetch(nonExistentCid, 'private')).rejects.toThrow();
+    });
+
+    it('should fail to fetch with invalid CID', async () => {
+      await expect(client.fetch('invalid-cid', 'private')).rejects.toThrow();
     });
   });
 
@@ -104,6 +139,78 @@ describe('IpfsClient', () => {
       expect(publicPins).toContain(publicRecord.cid);
       expect(privatePins).not.toContain(publicRecord.cid);
       expect(publicPins).not.toContain(privateRecord.cid);
+    });
+  });
+
+  describe('Replication', () => {
+    it('should replicate content between scopes', async () => {
+      const testRecord: PipeRecord = {
+        type: 'data',
+        content: { test: 'replication-test' },
+        scope: 'private',
+        pinned: true
+      };
+
+      const publishedRecord = await client.publish(testRecord);
+      expect(publishedRecord.cid).toBeDefined();
+      if (!publishedRecord.cid) throw new Error('CID undefined');
+
+      await client.replicate(publishedRecord.cid, 'private', 'public');
+
+      const privatePins = await client.getPinnedCids('private');
+      const publicPins = await client.getPinnedCids('public');
+
+      expect(privatePins).toContain(publishedRecord.cid);
+      expect(publicPins).toContain(publishedRecord.cid);
+
+      const publicContent = await client.fetch(publishedRecord.cid, 'public');
+      expect(publicContent).toEqual(testRecord.content);
+    });
+
+    it('should fail to replicate non-existent content', async () => {
+      // Use a CID that we know doesn't exist
+      const nonExistentCid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
+      await expect(client.replicate(nonExistentCid, 'public', 'private'))
+        .rejects
+        .toThrow('Content not found in source scope');
+    });
+
+    it('should fail to replicate with invalid source scope', async () => {
+      const testRecord: PipeRecord = {
+        type: 'data',
+        content: { test: 'scope-test' },
+        scope: 'private',
+        pinned: true
+      };
+
+      const publishedRecord = await client.publish(testRecord);
+      if (!publishedRecord.cid) throw new Error('CID undefined');
+
+      await expect(
+        client.replicate(publishedRecord.cid, 'invalid-scope' as any, 'public')
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Storage and Configuration', () => {
+    it('should return storage metrics', async () => {
+      const metrics = await client.getStorageMetrics('private');
+      expect(metrics).toHaveProperty('repoSize');
+      expect(metrics).toHaveProperty('blockCount');
+      expect(metrics).toHaveProperty('pinnedCount');
+      expect(typeof metrics.pinnedCount).toBe('number');
+    });
+
+    it('should return node configuration', async () => {
+      const config = await client.getConfiguration('private');
+      expect(config).toHaveProperty('peerId');
+      expect(config).toHaveProperty('addrs');
+      expect(Array.isArray(config.addrs)).toBe(true);
+    });
+
+    it('should return node info', async () => {
+      const info = await client.getNodeInfo('private');
+      expect(info).toHaveProperty('peerId');
     });
   });
 }); 
