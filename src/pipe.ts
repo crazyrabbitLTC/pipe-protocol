@@ -20,11 +20,8 @@ export class PipeProtocol {
   private initialized: Promise<void>;
 
   constructor(options: PipeOptions = {}) {
-    console.log('Initializing PipeProtocol...');
     try {
-      console.log('Creating EncryptionService...');
       this.encryption = new EncryptionService();
-      console.log('Creating IpfsClient...');
       
       // Map PipeOptions to PipeIpfsOptions
       const ipfsConfig: PipeIpfsOptions = {
@@ -41,7 +38,6 @@ export class PipeProtocol {
         }
         throw error;
       });
-      console.log('PipeProtocol initialization complete.');
     } catch (error) {
       console.error('Error during PipeProtocol initialization:', error);
       if (error instanceof Error) {
