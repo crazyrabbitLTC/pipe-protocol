@@ -23,7 +23,9 @@ export class IpfsClient {
 
   private async init(localNodeEndpoint?: string, publicNodeEndpoint?: string) {
     try {
-      this.localNode = await createHelia();
+      this.localNode = await createHelia({
+        start: true
+      });
       
       if(publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT) {
         const publicEndpoint = publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001';
@@ -79,13 +81,17 @@ export class IpfsClient {
   public async pin(cidStr: string, scope: Scope): Promise<void> {
     const node = await this.getNode(scope);
     const cid = CID.parse(cidStr);
-    await node.pins.add(cid);
+    await node.pins.add(cid, {
+      recursive: true
+    });
   }
 
   public async unpin(cidStr: string, scope: Scope): Promise<void> {
     const node = await this.getNode(scope);
     const cid = CID.parse(cidStr);
-    await node.pins.rm(cid);
+    await node.pins.rm(cid, {
+      recursive: true
+    });
   }
 
   public async replicate(cidStr: string, fromScope: Scope, toScope: Scope): Promise<void> {
@@ -128,10 +134,9 @@ export class IpfsClient {
 
   public async getPinnedCids(scope: Scope): Promise<string[]> {
     const node = await this.getNode(scope);
-    const pins = node.pins.ls();
     const cidStrings: string[] = [];
-    for await (const pin of pins) {
-      cidStrings.push(pin.toString());
+    for await (const { cid } of node.pins.ls()) {
+      cidStrings.push(cid.toString());
     }
     return cidStrings;
   }

@@ -13,7 +13,8 @@ async function testBasicOperations() {
       content: { message: 'Hello, IPFS!' },
       scope: 'private' as const,
       accessPolicy: { hiddenFromLLM: false },
-      encryption: { enabled: false }
+      encryption: { enabled: false },
+      pinned: true
     };
 
     const published = await pipe.publishRecord(record);
@@ -44,6 +45,12 @@ async function testBasicOperations() {
     console.log('\nTest 4: Getting pinned CIDs...');
     const pinnedCids = await pipe.getPinnedCids('private');
     console.log('Pinned CIDs:', pinnedCids);
+
+    // Verify the published CID is in the pinned list
+    if (published.cid) {
+      const isPinned = pinnedCids.includes(published.cid);
+      console.log('Published CID is pinned:', isPinned);
+    }
 
     // Test 5: Get node status
     console.log('\nTest 5: Getting node status...');
