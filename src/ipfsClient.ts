@@ -20,14 +20,33 @@ export class IpfsClient {
   private publicPinnedCids: Set<string>;
 
   constructor(options: PipeIpfsOptions = {}) {
-    const { localNodeEndpoint, publicNodeEndpoint } = options;
-    this.localPinnedCids = new Set();
-    this.publicPinnedCids = new Set();
-    this.initialized = this.init(localNodeEndpoint, publicNodeEndpoint);
+    console.log('Initializing IpfsClient...');
+    try {
+      const { localNodeEndpoint, publicNodeEndpoint } = options;
+      console.log('Creating pinned CID sets...');
+      this.localPinnedCids = new Set();
+      this.publicPinnedCids = new Set();
+      console.log('Starting IPFS node initialization...');
+      this.initialized = this.init(localNodeEndpoint, publicNodeEndpoint).catch(error => {
+        console.error('Error during IPFS initialization:', error);
+        if (error instanceof Error) {
+          console.error('Error stack:', error.stack);
+        }
+        throw error;
+      });
+      console.log('IpfsClient constructor complete.');
+    } catch (error) {
+      console.error('Error in IpfsClient constructor:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      throw error;
+    }
   }
 
   private async init(localNodeEndpoint?: string, publicNodeEndpoint?: string) {
     try {
+      console.log('Creating local IPFS node...');
       // Initialize with memory blockstore for testing
       const blockstore = new MemoryBlockstore();
       
@@ -35,17 +54,23 @@ export class IpfsClient {
         blockstore,
         start: true
       });
+      console.log('Local IPFS node created successfully.');
       
       if(publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT) {
+        console.log('Creating public IPFS node...');
         const publicEndpoint = publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001';
         const publicBlockstore = new MemoryBlockstore();
         this.publicNode = await createHelia({
           blockstore: publicBlockstore,
           start: true
         });
+        console.log('Public IPFS node created successfully.');
       }
     } catch (error) {
       console.error('Failed to initialize IPFS client:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
       throw error;
     }
   }

@@ -13,8 +13,20 @@ export class PipeProtocol {
   private encryption: EncryptionService;
 
   constructor(options: PipeOptions = {}) {
-    this.ipfs = new IpfsClient(options);
-    this.encryption = new EncryptionService();
+    console.log('Initializing PipeProtocol...');
+    try {
+      console.log('Creating EncryptionService...');
+      this.encryption = new EncryptionService();
+      console.log('Creating IpfsClient...');
+      this.ipfs = new IpfsClient(options);
+      console.log('PipeProtocol initialization complete.');
+    } catch (error) {
+      console.error('Error during PipeProtocol initialization:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      throw error;
+    }
   }
 
   public async publishRecord(record: PipeRecord): Promise<PipeRecord> {

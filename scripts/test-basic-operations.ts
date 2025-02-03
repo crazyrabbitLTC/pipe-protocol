@@ -3,9 +3,11 @@ import { PipeProtocol } from '../src/pipe';
 async function testBasicOperations() {
   console.log('Starting basic operations test...\n');
   
-  const pipe = new PipeProtocol({});
+  let pipe: PipeProtocol | undefined;
 
   try {
+    pipe = new PipeProtocol({});
+
     // Test 1: Publish a simple record
     console.log('Test 1: Publishing a simple record...');
     const record = {
@@ -59,12 +61,22 @@ async function testBasicOperations() {
 
   } catch (error) {
     console.error('Error during test:', error);
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
+    process.exit(1);
   } finally {
     try {
-      await pipe.stop();
-      console.log('\nTest completed and node stopped.');
+      if (pipe) {
+        await pipe.stop();
+        console.log('\nTest completed and node stopped.');
+      }
     } catch (error) {
       console.error('Error stopping node:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      process.exit(1);
     }
   }
 }
@@ -75,6 +87,9 @@ async function testBasicOperations() {
     await testBasicOperations();
   } catch (error) {
     console.error('Test failed:', error);
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
     process.exit(1);
   }
 })(); 
