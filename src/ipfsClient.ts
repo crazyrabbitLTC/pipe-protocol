@@ -15,9 +15,13 @@ interface PipeIpfsOptions {
 export class IpfsClient {
   private localNode!: Helia;
   private publicNode?: Helia;
+  private machineNode?: Helia;
+  private userNode?: Helia;
   private initialized: Promise<void>;
   private localPinnedCids: Set<string>;
   private publicPinnedCids: Set<string>;
+  private machinePinnedCids: Set<string>;
+  private userPinnedCids: Set<string>;
 
   constructor(options: PipeIpfsOptions = {}) {
     console.log('Initializing IpfsClient...');
@@ -26,6 +30,8 @@ export class IpfsClient {
       console.log('Creating pinned CID sets...');
       this.localPinnedCids = new Set();
       this.publicPinnedCids = new Set();
+      this.machinePinnedCids = new Set();
+      this.userPinnedCids = new Set();
       console.log('Starting IPFS node initialization...');
       this.initialized = this.init(localNodeEndpoint, publicNodeEndpoint).catch(error => {
         console.error('Error during IPFS initialization:', error);
@@ -66,6 +72,23 @@ export class IpfsClient {
         });
         console.log('Public IPFS node created successfully.');
       }
+
+      // Create machine and user nodes with separate blockstores
+      console.log('Creating machine IPFS node...');
+      const machineBlockstore = new MemoryBlockstore();
+      this.machineNode = await createHelia({
+        blockstore: machineBlockstore,
+        start: true
+      });
+      console.log('Machine IPFS node created successfully.');
+
+      console.log('Creating user IPFS node...');
+      const userBlockstore = new MemoryBlockstore();
+      this.userNode = await createHelia({
+        blockstore: userBlockstore,
+        start: true
+      });
+      console.log('User IPFS node created successfully.');
     } catch (error) {
       console.error('Failed to initialize IPFS client:', error);
       if (error instanceof Error) {
@@ -77,13 +100,25 @@ export class IpfsClient {
 
   private async getNode(scope: Scope): Promise<{ node: Helia; pinnedCids: Set<string> }> {
     await this.initialized;
-    if(scope === 'public') {
-      if(!this.publicNode) {
-        throw new Error("Cannot use public scope when no public endpoint is provided");
-      }
-      return { node: this.publicNode, pinnedCids: this.publicPinnedCids };
+    switch (scope) {
+      case 'public':
+        if (!this.publicNode) {
+          throw new Error("Cannot use public scope when no public endpoint is provided");
+        }
+        return { node: this.publicNode, pinnedCids: this.publicPinnedCids };
+      case 'machine':
+        if (!this.machineNode) {
+          throw new Error("Machine node not initialized");
+        }
+        return { node: this.machineNode, pinnedCids: this.machinePinnedCids };
+      case 'user':
+        if (!this.userNode) {
+          throw new Error("User node not initialized");
+        }
+        return { node: this.userNode, pinnedCids: this.userPinnedCids };
+      default:
+        return { node: this.localNode, pinnedCids: this.localPinnedCids };
     }
-    return { node: this.localNode, pinnedCids: this.localPinnedCids };
   }
 
   private async createCID(bytes: Uint8Array): Promise<CID> {
@@ -115,8 +150,14 @@ export class IpfsClient {
   }
 
   public async fetch(cidStr: string, scope: Scope): Promise<any> {
-    const { node } = await this.getNode(scope);
+    const { node, pinnedCids } = await this.getNode(scope);
     const cid = CID.parse(cidStr);
+
+    // Check if the CID is pinned in this scope
+    if (!pinnedCids.has(cidStr)) {
+      throw new Error(`Content with CID ${cidStr} is not available in ${scope} scope`);
+    }
+
     const bytes = await node.blockstore.get(cid);
     const decoder = new TextDecoder();
     const content = decoder.decode(bytes);
@@ -147,23 +188,48 @@ export class IpfsClient {
   }
 
   public async replicate(cidStr: string, fromScope: Scope, toScope: Scope): Promise<void> {
-    if (toScope === 'public') {
-      await this.pin(cidStr, fromScope);
+    console.log(`Starting replication from ${fromScope} to ${toScope} for CID: ${cidStr}`);
+    
+    try {
+      // Get source and target nodes
+      const { node: sourceNode } = await this.getNode(fromScope);
+      const { node: targetNode } = await this.getNode(toScope);
+
+      // Get the content from source
+      const cid = CID.parse(cidStr);
+      const bytes = await sourceNode.blockstore.get(cid);
+
+      // Store in target
+      await targetNode.blockstore.put(cid, bytes);
+
+      // Pin in target scope
+      await this.pin(cidStr, toScope);
+
+      console.log(`Successfully replicated CID ${cidStr} from ${fromScope} to ${toScope}`);
+    } catch (error) {
+      console.error(`Error during replication:`, error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      throw error;
     }
-    console.log(`Replication from ${fromScope} to ${toScope} for CID: ${cidStr}`);
   }
 
   public async stop(): Promise<void> {
     await this.initialized;
     await this.localNode.stop();
     if(this.publicNode) await this.publicNode.stop();
+    if(this.machineNode) await this.machineNode.stop();
+    if(this.userNode) await this.userNode.stop();
   }
 
   public async getStatus(): Promise<any> {
     await this.initialized;
     return {
       localNode: Boolean(this.localNode),
-      publicNode: Boolean(this.publicNode)
+      publicNode: Boolean(this.publicNode),
+      machineNode: Boolean(this.machineNode),
+      userNode: Boolean(this.userNode)
     };
   }
 

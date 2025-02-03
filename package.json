@@ -17,11 +17,15 @@
     "pretest:encryption": "npm run build",
     "pretest:bundles": "npm run build",
     "pretest:api": "npm run build",
+    "pretest:replication": "npm run build",
+    "pretest:ipfs": "npm run build",
     "test:basic": "node dist/scripts/test-basic-operations.js",
     "test:encryption": "node dist/scripts/test-encryption.js",
     "test:bundles": "node dist/scripts/test-bundles.js",
     "test:api": "node dist/scripts/test-api.js",
-    "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api"
+    "test:replication": "node dist/scripts/test-replication.js",
+    "test:ipfs": "node dist/scripts/test-ipfs.js",
+    "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api && npm run test:replication && npm run test:ipfs"
   },
   "keywords": [
     "ipfs",

@@ -1,6 +1,6 @@
 import { IpfsClient } from './ipfsClient.js';
 import { EncryptionService } from './encryption.js';
-import { PipeRecord, PipeBundle, Scope } from './types.js';
+import { PipeRecord, PipeBundle, Scope, EncryptionInfo } from './types.js';
 import { PipeRecordSchema, PipeBundleSchema } from './schema.js';
 
 export interface PipeOptions {
@@ -91,7 +91,7 @@ export class PipeProtocol {
     const isEncrypted = typeof content === 'string' && content.startsWith('encrypted:');
     
     // Get encryption info if the content is encrypted
-    let encryptionInfo = { enabled: false };
+    let encryptionInfo: EncryptionInfo = { enabled: false };
     if (isEncrypted && typeof content === 'string') {
       const info = this.encryption.getEncryptionInfo(content);
       if (info) {

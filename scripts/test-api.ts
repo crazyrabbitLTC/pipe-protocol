@@ -1,17 +1,19 @@
-import { PipeProtocol } from '../src/pipe';
-import { createApi } from '../src/api';
+import { PipeProtocol } from '../src/pipe.js';
+import { createApi } from '../src/api.js';
 import { AddressInfo } from 'net';
 import { request } from 'http';
+import { Server } from 'http';
 
 async function testApi() {
   console.log('Starting API test...\n');
   
   const pipe = new PipeProtocol({});
   const app = createApi(pipe);
+  let server: Server | undefined;
 
   try {
     // Start the API server
-    const server = app.listen(0); // Use port 0 to get a random available port
+    server = app.listen(0); // Use port 0 to get a random available port
     const address = server.address() as AddressInfo;
     const port = address.port;
     console.log(`API server started on port ${port}\n`);
@@ -173,7 +175,9 @@ async function testApi() {
     console.error('Error during test:', error);
   } finally {
     try {
-      server.close();
+      if (server) {
+        server.close();
+      }
       await pipe.stop();
       console.log('\nTest completed, server stopped, and node stopped.');
     } catch (error) {
