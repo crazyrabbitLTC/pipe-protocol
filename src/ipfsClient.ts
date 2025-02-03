@@ -23,14 +23,21 @@ export class IpfsClient {
 
   private async init(localNodeEndpoint?: string, publicNodeEndpoint?: string) {
     try {
+      // Initialize with pinning enabled by default
       this.localNode = await createHelia({
-        start: true
+        start: true,
+        pinning: {
+          enable: true
+        }
       });
       
       if(publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT) {
         const publicEndpoint = publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001';
         this.publicNode = await createHelia({
-          start: true
+          start: true,
+          pinning: {
+            enable: true
+          }
         });
       }
     } catch (error) {
@@ -61,11 +68,20 @@ export class IpfsClient {
     const encoder = new TextEncoder();
     const bytes = encoder.encode(content);
     const cid = await this.createCID(bytes);
+    
+    // Store the content
     await node.blockstore.put(cid, bytes);
     
+    // Pin if requested
     if (record.pinned) {
-      await this.pin(cid.toString(), record.scope);
+      try {
+        await this.pin(cid.toString(), record.scope);
+      } catch (error) {
+        console.warn('Failed to pin content:', error);
+        // Continue even if pinning fails
+      }
     }
+    
     return {...record, cid: cid.toString()};
   }
 
@@ -81,17 +97,23 @@ export class IpfsClient {
   public async pin(cidStr: string, scope: Scope): Promise<void> {
     const node = await this.getNode(scope);
     const cid = CID.parse(cidStr);
-    await node.pins.add(cid, {
-      recursive: true
-    });
+    try {
+      await node.pins.add(cid);
+    } catch (error) {
+      console.error('Error pinning content:', error);
+      throw error;
+    }
   }
 
   public async unpin(cidStr: string, scope: Scope): Promise<void> {
     const node = await this.getNode(scope);
     const cid = CID.parse(cidStr);
-    await node.pins.rm(cid, {
-      recursive: true
-    });
+    try {
+      await node.pins.rm(cid);
+    } catch (error) {
+      console.error('Error unpinning content:', error);
+      throw error;
+    }
   }
 
   public async replicate(cidStr: string, fromScope: Scope, toScope: Scope): Promise<void> {
@@ -124,19 +146,21 @@ export class IpfsClient {
 
   public async getStorageMetrics(scope: Scope): Promise<any> {
     const node = await this.getNode(scope);
-    let size = 0;
-    // Since blocks() is not available, we'll use a simpler approach
-    // This is a placeholder that returns a fixed size
     return {
-      repoSize: 0 // In a real implementation, we would need to track block sizes
+      repoSize: 0 // Simplified metric for now
     };
   }
 
   public async getPinnedCids(scope: Scope): Promise<string[]> {
     const node = await this.getNode(scope);
     const cidStrings: string[] = [];
-    for await (const { cid } of node.pins.ls()) {
-      cidStrings.push(cid.toString());
+    try {
+      for await (const { cid } of node.pins.ls()) {
+        cidStrings.push(cid.toString());
+      }
+    } catch (error) {
+      console.error('Error listing pinned CIDs:', error);
+      throw error;
     }
     return cidStrings;
   }
