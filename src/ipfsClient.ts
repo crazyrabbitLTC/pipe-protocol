@@ -4,6 +4,7 @@ import { config } from 'dotenv';
 import { CID } from 'multiformats/cid';
 import * as raw from 'multiformats/codecs/raw';
 import { sha256 } from 'multiformats/hashes/sha2';
+import { MemoryBlockstore } from 'blockstore-core';
 config();
 
 interface PipeIpfsOptions {
@@ -23,21 +24,20 @@ export class IpfsClient {
 
   private async init(localNodeEndpoint?: string, publicNodeEndpoint?: string) {
     try {
-      // Initialize with pinning enabled by default
+      // Initialize with memory blockstore for testing
+      const blockstore = new MemoryBlockstore();
+      
       this.localNode = await createHelia({
-        start: true,
-        pinning: {
-          enable: true
-        }
+        blockstore,
+        start: true
       });
       
       if(publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT) {
         const publicEndpoint = publicNodeEndpoint || process.env.PUBLIC_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001';
+        const publicBlockstore = new MemoryBlockstore();
         this.publicNode = await createHelia({
-          start: true,
-          pinning: {
-            enable: true
-          }
+          blockstore: publicBlockstore,
+          start: true
         });
       }
     } catch (error) {
