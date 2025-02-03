@@ -1,7 +1,7 @@
 import { PipeProtocol } from '../src/pipe';
 import { createApi } from '../src/api';
 import { AddressInfo } from 'net';
-import fetch from 'node-fetch';
+import { request } from 'http';
 
 async function testApi() {
   console.log('Starting API test...\n');
@@ -17,23 +17,46 @@ async function testApi() {
     console.log(`API server started on port ${port}\n`);
 
     // Helper function to make API requests
-    async function makeRequest(method: string, path: string, body?: any) {
-      const options: any = {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      };
-      
-      if (body) {
-        options.body = JSON.stringify(body);
-      }
+    async function makeRequest(method: string, path: string, body?: any): Promise<{ status: number; data: any }> {
+      return new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'localhost',
+          port: port,
+          path: path,
+          method: method,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
 
-      const response = await fetch(`http://localhost:${port}${path}`, options);
-      return {
-        status: response.status,
-        data: await response.json().catch(() => null)
-      };
+        const req = request(options, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            try {
+              resolve({
+                status: res.statusCode || 500,
+                data: data ? JSON.parse(data) : null
+              });
+            } catch (error) {
+              resolve({
+                status: res.statusCode || 500,
+                data: null
+              });
+            }
+          });
+        });
+
+        req.on('error', (error) => {
+          console.error('Request error:', error);
+          reject(error);
+        });
+
+        if (body) {
+          req.write(JSON.stringify(body));
+        }
+        req.end();
+      });
     }
 
     // Test 1: Publish a record via API

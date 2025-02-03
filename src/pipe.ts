@@ -78,6 +78,22 @@ export class PipeProtocol {
     // If the content is a string and starts with 'encrypted(', it's an encrypted record
     const isEncrypted = typeof content === 'string' && content.startsWith('encrypted(');
     
+    // Try to extract encryption method and keyRef from the content
+    let method = undefined;
+    let keyRef = undefined;
+    
+    if (isEncrypted) {
+      try {
+        const match = content.match(/encrypted\((.*), (.*), (.*)\)/);
+        if (match) {
+          method = match[2];
+          keyRef = match[3];
+        }
+      } catch (error) {
+        console.warn('Failed to extract encryption details:', error);
+      }
+    }
+    
     return {
       cid,
       content,
@@ -86,7 +102,9 @@ export class PipeProtocol {
       accessPolicy: { hiddenFromLLM: false },
       encryption: { 
         enabled: isEncrypted,
-        ciphertext: isEncrypted
+        ciphertext: isEncrypted,
+        method,
+        keyRef
       }
     };
   }
