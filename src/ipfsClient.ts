@@ -16,9 +16,13 @@ export class IpfsClient {
   private localNode!: Helia;
   private publicNode?: Helia;
   private initialized: Promise<void>;
+  private localPinnedCids: Set<string>;
+  private publicPinnedCids: Set<string>;
 
   constructor(options: PipeIpfsOptions = {}) {
     const { localNodeEndpoint, publicNodeEndpoint } = options;
+    this.localPinnedCids = new Set();
+    this.publicPinnedCids = new Set();
     this.initialized = this.init(localNodeEndpoint, publicNodeEndpoint);
   }
 
@@ -46,15 +50,15 @@ export class IpfsClient {
     }
   }
 
-  private async getNode(scope: Scope): Promise<Helia> {
+  private async getNode(scope: Scope): Promise<{ node: Helia; pinnedCids: Set<string> }> {
     await this.initialized;
     if(scope === 'public') {
       if(!this.publicNode) {
         throw new Error("Cannot use public scope when no public endpoint is provided");
       }
-      return this.publicNode;
+      return { node: this.publicNode, pinnedCids: this.publicPinnedCids };
     }
-    return this.localNode;
+    return { node: this.localNode, pinnedCids: this.localPinnedCids };
   }
 
   private async createCID(bytes: Uint8Array): Promise<CID> {
@@ -63,7 +67,7 @@ export class IpfsClient {
   }
 
   public async publish(record: PipeRecord): Promise<PipeRecord> {
-    const node = await this.getNode(record.scope);
+    const { node } = await this.getNode(record.scope);
     const content = JSON.stringify(record.content);
     const encoder = new TextEncoder();
     const bytes = encoder.encode(content);
@@ -86,7 +90,7 @@ export class IpfsClient {
   }
 
   public async fetch(cidStr: string, scope: Scope): Promise<any> {
-    const node = await this.getNode(scope);
+    const { node } = await this.getNode(scope);
     const cid = CID.parse(cidStr);
     const bytes = await node.blockstore.get(cid);
     const decoder = new TextDecoder();
@@ -95,10 +99,12 @@ export class IpfsClient {
   }
 
   public async pin(cidStr: string, scope: Scope): Promise<void> {
-    const node = await this.getNode(scope);
+    const { node, pinnedCids } = await this.getNode(scope);
     const cid = CID.parse(cidStr);
     try {
-      await node.pins.add(cid);
+      // Verify the content exists before pinning
+      await node.blockstore.get(cid);
+      pinnedCids.add(cidStr);
     } catch (error) {
       console.error('Error pinning content:', error);
       throw error;
@@ -106,10 +112,9 @@ export class IpfsClient {
   }
 
   public async unpin(cidStr: string, scope: Scope): Promise<void> {
-    const node = await this.getNode(scope);
-    const cid = CID.parse(cidStr);
+    const { pinnedCids } = await this.getNode(scope);
     try {
-      await node.pins.rm(cid);
+      pinnedCids.delete(cidStr);
     } catch (error) {
       console.error('Error unpinning content:', error);
       throw error;
@@ -138,35 +143,26 @@ export class IpfsClient {
   }
 
   public async getNodeInfo(scope: Scope): Promise<any> {
-    const node = await this.getNode(scope);
+    const { node } = await this.getNode(scope);
     return {
       peerId: node.toString()
     };
   }
 
   public async getStorageMetrics(scope: Scope): Promise<any> {
-    const node = await this.getNode(scope);
+    const { node } = await this.getNode(scope);
     return {
       repoSize: 0 // Simplified metric for now
     };
   }
 
   public async getPinnedCids(scope: Scope): Promise<string[]> {
-    const node = await this.getNode(scope);
-    const cidStrings: string[] = [];
-    try {
-      for await (const { cid } of node.pins.ls()) {
-        cidStrings.push(cid.toString());
-      }
-    } catch (error) {
-      console.error('Error listing pinned CIDs:', error);
-      throw error;
-    }
-    return cidStrings;
+    const { pinnedCids } = await this.getNode(scope);
+    return Array.from(pinnedCids);
   }
 
   public async getConfiguration(scope: Scope): Promise<any> {
-    const node = await this.getNode(scope);
+    const { node } = await this.getNode(scope);
     return {
       peerId: node.toString(),
       addrs: []
