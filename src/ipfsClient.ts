@@ -151,17 +151,28 @@ export class IpfsClient {
 
   public async fetch(cidStr: string, scope: Scope): Promise<any> {
     const { node, pinnedCids } = await this.getNode(scope);
-    const cid = CID.parse(cidStr);
+    
+    try {
+      const cid = CID.parse(cidStr);
+      
+      // Check if the CID is pinned in this scope
+      if (!pinnedCids.has(cidStr)) {
+        throw new Error(`Content with CID ${cidStr} is not available in ${scope} scope`);
+      }
 
-    // Check if the CID is pinned in this scope
-    if (!pinnedCids.has(cidStr)) {
-      throw new Error(`Content with CID ${cidStr} is not available in ${scope} scope`);
+      const bytes = await node.blockstore.get(cid);
+      const decoder = new TextDecoder();
+      const content = decoder.decode(bytes);
+      return JSON.parse(content);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('is not available')) {
+          throw error;
+        }
+        throw new Error(`Failed to fetch content: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while fetching content');
     }
-
-    const bytes = await node.blockstore.get(cid);
-    const decoder = new TextDecoder();
-    const content = decoder.decode(bytes);
-    return JSON.parse(content);
   }
 
   public async pin(cidStr: string, scope: Scope): Promise<void> {
@@ -179,12 +190,7 @@ export class IpfsClient {
 
   public async unpin(cidStr: string, scope: Scope): Promise<void> {
     const { pinnedCids } = await this.getNode(scope);
-    try {
-      pinnedCids.delete(cidStr);
-    } catch (error) {
-      console.error('Error unpinning content:', error);
-      throw error;
-    }
+    pinnedCids.delete(cidStr);
   }
 
   public async replicate(cidStr: string, fromScope: Scope, toScope: Scope): Promise<void> {
@@ -241,9 +247,11 @@ export class IpfsClient {
   }
 
   public async getStorageMetrics(scope: Scope): Promise<any> {
-    const { node } = await this.getNode(scope);
+    const { node, pinnedCids } = await this.getNode(scope);
     return {
-      repoSize: 0 // Simplified metric for now
+      repoSize: 0, // Blockstore size not directly accessible
+      blockCount: 0, // Block count not directly accessible
+      pinnedCount: pinnedCids.size
     };
   }
 
