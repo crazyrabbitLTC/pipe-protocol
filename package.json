@@ -25,7 +25,9 @@
     "test:api": "node dist/scripts/test-api.js",
     "test:replication": "node dist/scripts/test-replication.js",
     "test:ipfs": "node dist/scripts/test-ipfs.js",
-    "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api && npm run test:replication && npm run test:ipfs"
+    "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api && npm run test:replication && npm run test:ipfs",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:jest:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
   "keywords": [
     "ipfs",
