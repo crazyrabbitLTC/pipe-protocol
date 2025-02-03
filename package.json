@@ -4,6 +4,7 @@
   "description": "A protocol for wrapping LLM tools with IPFS storage and encryption",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -13,7 +14,9 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "clean": "rimraf dist coverage",
     "prepare": "npm run build",
-    "test:llm-wrapping": "ts-node scripts/test-llm-wrapping.ts"
+    "test:llm-wrapping": "bun run scripts/test-llm-wrapping.ts",
+    "test:basic": "bun run scripts/test-basic-operations.ts",
+    "test:ipfs": "bun run scripts/test-ipfs.ts"
   },
   "dependencies": {
     "blockstore-core": "^5.0.0",

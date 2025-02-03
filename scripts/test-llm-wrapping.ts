@@ -1,52 +1,54 @@
-import { PipeProtocol } from '../src/pipe';
-import { Tool } from '../src/types';
+import { PipeProtocol } from '../src/pipe.js';
+import type { Tool } from '../src/types.js';
 
-async function main() {
+async function testLLMWrapping() {
   console.log('Testing LLM function wrapping with Pipe...');
   
-  // Initialize PipeProtocol
-  const pipe = new PipeProtocol({
-    localNodeEndpoint: 'http://localhost:5001',
-    publicNodeEndpoint: 'http://localhost:5001'
-  });
-
-  // Mock LLM function that simulates making an API call
-  const mockLLMCall = async (prompt: string): Promise<string> => {
-    console.log('Making mock LLM call with prompt:', prompt);
-    // Simulate API latency
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return `Response to: ${prompt}\nThis is a simulated LLM response that provides an answer to your query.`;
-  };
-
-  // Create a tool definition for the LLM function
-  const llmTool: Tool = {
-    name: 'llm-query',
-    description: 'Makes a query to a language model and returns its response',
-    parameters: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'The prompt to send to the language model'
-        }
-      },
-      required: ['prompt']
-    },
-    call: async (args: { prompt: string }) => {
-      const response = await mockLLMCall(args.prompt);
-      return {
-        prompt: args.prompt,
-        response,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          model: 'mock-llm-model',
-          version: '1.0.0'
-        }
-      };
-    }
-  };
+  let pipe: PipeProtocol | undefined;
 
   try {
+    // Initialize PipeProtocol
+    pipe = new PipeProtocol({
+      localNodeEndpoint: 'http://localhost:5001',
+      publicNodeEndpoint: 'http://localhost:5001'
+    });
+
+    // Mock LLM function that simulates making an API call
+    const mockLLMCall = async (prompt: string): Promise<string> => {
+      console.log('Making mock LLM call with prompt:', prompt);
+      // Simulate API latency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return `Response to: ${prompt}\nThis is a simulated LLM response that provides an answer to your query.`;
+    };
+
+    // Create a tool definition for the LLM function
+    const llmTool: Tool = {
+      name: 'llm-query',
+      description: 'Makes a query to a language model and returns its response',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'The prompt to send to the language model'
+          }
+        },
+        required: ['prompt']
+      },
+      call: async (args: { prompt: string }) => {
+        const response = await mockLLMCall(args.prompt);
+        return {
+          prompt: args.prompt,
+          response,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            model: 'mock-llm-model',
+            version: '1.0.0'
+          }
+        };
+      }
+    };
+
     // Wrap the LLM tool with Pipe
     const [wrappedLLMTool] = pipe.wrap([llmTool]);
 
@@ -79,16 +81,38 @@ async function main() {
       console.log('Stored content:', storedRecord?.content);
     }
 
-    // Clean up
-    await pipe.stop();
     console.log('\nTest completed successfully!');
-
   } catch (error) {
     console.error('Error during test:', error);
-    await pipe.stop();
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
     process.exit(1);
+  } finally {
+    try {
+      if (pipe) {
+        await pipe.stop();
+        console.log('\nTest completed and node stopped.');
+      }
+    } catch (error) {
+      console.error('Error stopping node:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      process.exit(1);
+    }
   }
 }
 
 // Run the test
-main().catch(console.error); 
+(async () => {
+  try {
+    await testLLMWrapping();
+  } catch (error) {
+    console.error('Test failed:', error);
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
+    process.exit(1);
+  }
+})(); 
