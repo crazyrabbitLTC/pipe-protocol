@@ -66,4 +66,12 @@ export function pipe(tools: Tool[]): (Tool | PipeTool)[] {
   };
 
   return [...tools, pipeTool];
-} 
+}
+
+export { PipeProtocol };
+export { IpfsClient } from './ipfsClient';
+export { EncryptionService } from './encryption';
+export * from './types';
+
+// Export the example summary hook
+export { summaryHook } from './pipe'; 

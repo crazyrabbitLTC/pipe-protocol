@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/storage-metrics",
+  "title": "GET /storage-metrics",
+  "description": "Returns storage usage metrics for a specified IPFS node. This endpoint provides detailed information about storage consumption, including repository size, content distribution, and pinned data metrics.",
+  "source": "@site/docs/api-reference/storage-metrics.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/storage-metrics",
+  "permalink": "/api-reference/storage-metrics",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /node-info",
+    "permalink": "/api-reference/node-info"
+  },
+  "next": {
+    "title": "GET /pinned-cids",
+    "permalink": "/api-reference/pinned-cids"
+  }
+}

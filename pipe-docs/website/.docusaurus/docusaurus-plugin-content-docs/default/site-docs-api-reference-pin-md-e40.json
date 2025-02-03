@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/pin",
+  "title": "POST /pin",
+  "description": "Pins a CID in a specified scope, preventing it from being garbage collected. Pinned content remains available until explicitly unpinned.",
+  "source": "@site/docs/api-reference/pin.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/pin",
+  "permalink": "/api-reference/pin",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "POST /publish-bundle",
+    "permalink": "/api-reference/publish-bundle"
+  },
+  "next": {
+    "title": "POST /unpin",
+    "permalink": "/api-reference/unpin"
+  }
+}

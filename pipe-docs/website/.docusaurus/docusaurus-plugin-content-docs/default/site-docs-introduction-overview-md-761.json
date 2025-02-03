@@ -1,0 +1,24 @@
+{
+  "id": "introduction/overview",
+  "title": "Pipe Protocol Overview",
+  "description": "Pipe is a protocol designed for efficient data handling in multi-agent Large Language Model (LLM) systems. It allows agents to share and reference large or structured data through IPFS (InterPlanetary File System), minimizing context overload and improving scalability.",
+  "source": "@site/docs/introduction/overview.md",
+  "sourceDirName": "introduction",
+  "slug": "/introduction/overview",
+  "permalink": "/introduction/overview",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Tutorial Intro",
+    "permalink": "/intro"
+  },
+  "next": {
+    "title": "The Problem Pipe Solves",
+    "permalink": "/introduction/problem"
+  }
+}

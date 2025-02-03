@@ -1,57 +1,46 @@
 {
-  "name": "pipe-core",
-  "version": "1.0.0",
-  "description": "A protocol for sharing data between LLMs via IPFS",
+  "name": "pipe-protocol",
+  "version": "0.1.0",
+  "description": "A protocol for wrapping LLM tools with IPFS storage and encryption",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
   "scripts": {
     "build": "tsc",
-    "build:scripts": "tsc",
     "test": "jest",
-    "start": "node dist/index.js",
-    "dev": "node --loader ts-node/esm src/index.ts",
-    "lint": "eslint src/**/*.ts",
-    "clean": "rm -rf dist",
-    "pretest:basic": "npm run build",
-    "pretest:encryption": "npm run build",
-    "pretest:bundles": "npm run build",
-    "pretest:api": "npm run build",
-    "pretest:replication": "npm run build",
-    "pretest:ipfs": "npm run build",
-    "test:basic": "node dist/scripts/test-basic-operations.js",
-    "test:encryption": "node dist/scripts/test-encryption.js",
-    "test:bundles": "node dist/scripts/test-bundles.js",
-    "test:api": "node dist/scripts/test-api.js",
-    "test:replication": "node dist/scripts/test-replication.js",
-    "test:ipfs": "node dist/scripts/test-ipfs.js",
-    "test:all": "npm run test:basic && npm run test:encryption && npm run test:bundles && npm run test:api && npm run test:replication && npm run test:ipfs",
-    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:jest:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "clean": "rimraf dist coverage",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "ipfs-http-client": "^60.0.0",
+    "node:crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "@jest/types": "^29.6.3",
+    "@types/jest": "^29.5.4",
+    "@types/node": "^20.5.9",
+    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "@typescript-eslint/parser": "^6.6.0",
+    "eslint": "^8.48.0",
+    "jest": "^29.6.4",
+    "rimraf": "^5.0.1",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "keywords": [
     "ipfs",
+    "encryption",
     "llm",
-    "data-sharing",
+    "tools",
     "protocol"
   ],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@helia/unixfs": "^4.0.2",
-    "@types/express": "^5.0.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.13.0",
-    "blockstore-core": "^5.0.2",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "helia": "^5.2.0",
-    "jest": "^29.7.0",
-    "multiformats": "^13.3.1",
-    "node-fetch": "^2.7.0",
-    "ts-jest": "^29.2.5",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3",
-    "zod": "^3.24.1"
-  }
+  "license": "MIT"
 }

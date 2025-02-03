@@ -1,0 +1,24 @@
+{
+  "id": "core-concepts/scopes",
+  "title": "Scopes",
+  "description": "In the Pipe protocol, scopes determine how and where data is stored and accessed. Each scope has specific characteristics and use cases.",
+  "source": "@site/docs/core-concepts/scopes.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/scopes",
+  "permalink": "/core-concepts/scopes",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Terminology",
+    "permalink": "/core-concepts/terminology"
+  },
+  "next": {
+    "title": "PipeRecord",
+    "permalink": "/core-concepts/piperecord"
+  }
+}

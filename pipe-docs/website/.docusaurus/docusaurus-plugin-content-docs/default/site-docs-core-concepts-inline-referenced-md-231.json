@@ -1,0 +1,24 @@
+{
+  "id": "core-concepts/inline-referenced",
+  "title": "Inline vs. Referenced Content",
+  "description": "The Pipe protocol supports two methods of storing content: inline and referenced. Each approach has its own advantages and use cases.",
+  "source": "@site/docs/core-concepts/inline-referenced.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/inline-referenced",
+  "permalink": "/core-concepts/inline-referenced",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Encryption and Hidden-from-LLM Data",
+    "permalink": "/core-concepts/encryption"
+  },
+  "next": {
+    "title": "Fetching Data and Schema",
+    "permalink": "/usage-examples/fetch-data"
+  }
+}

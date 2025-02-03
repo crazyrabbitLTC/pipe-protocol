@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/pinned-cids",
+  "title": "GET /pinned-cids",
+  "description": "Returns a list of Content Identifiers (CIDs) that are currently pinned in a specified scope. This endpoint provides information about pinned content and their metadata.",
+  "source": "@site/docs/api-reference/pinned-cids.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/pinned-cids",
+  "permalink": "/api-reference/pinned-cids",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /storage-metrics",
+    "permalink": "/api-reference/storage-metrics"
+  },
+  "next": {
+    "title": "GET /configuration",
+    "permalink": "/api-reference/configuration"
+  }
+}

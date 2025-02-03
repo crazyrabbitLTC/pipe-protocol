@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/node-info",
+  "title": "GET /node-info",
+  "description": "Returns detailed information about a specific IPFS node managed by the Pipe protocol. This endpoint provides configuration and identity information for either the private or public node.",
+  "source": "@site/docs/api-reference/node-info.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/node-info",
+  "permalink": "/api-reference/node-info",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /node-status",
+    "permalink": "/api-reference/node-status"
+  },
+  "next": {
+    "title": "GET /storage-metrics",
+    "permalink": "/api-reference/storage-metrics"
+  }
+}

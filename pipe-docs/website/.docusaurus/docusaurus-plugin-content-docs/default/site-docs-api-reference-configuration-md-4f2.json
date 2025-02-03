@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/configuration",
+  "title": "GET /configuration",
+  "description": "Returns the current configuration of a specified IPFS node. This endpoint provides detailed information about node settings, network configuration, and runtime parameters.",
+  "source": "@site/docs/api-reference/configuration.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/configuration",
+  "permalink": "/api-reference/configuration",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /pinned-cids",
+    "permalink": "/api-reference/pinned-cids"
+  },
+  "next": {
+    "title": "GET /fetch",
+    "permalink": "/api-reference/fetch"
+  }
+}

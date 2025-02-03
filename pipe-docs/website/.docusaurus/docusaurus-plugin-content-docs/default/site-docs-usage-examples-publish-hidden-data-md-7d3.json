@@ -1,0 +1,24 @@
+{
+  "id": "usage-examples/publish-hidden-data",
+  "title": "Publishing Hidden Data",
+  "description": "This guide demonstrates how to publish data that should be hidden from Large Language Models (LLMs) using the Pipe protocol. We'll cover various scenarios including encryption, access policies, and tool-specific access.",
+  "source": "@site/docs/usage-examples/publish-hidden-data.md",
+  "sourceDirName": "usage-examples",
+  "slug": "/usage-examples/publish-hidden-data",
+  "permalink": "/usage-examples/publish-hidden-data",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Working with Bundles",
+    "permalink": "/usage-examples/work-bundles"
+  },
+  "next": {
+    "title": "Managing Pinned Content",
+    "permalink": "/usage-examples/pin-unpin"
+  }
+}

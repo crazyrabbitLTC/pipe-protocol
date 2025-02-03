@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/publish",
+  "title": "POST /publish",
+  "description": "Publishes a single PipeRecord to IPFS. This endpoint handles both inline content and referenced data, with support for encryption and access control.",
+  "source": "@site/docs/api-reference/publish.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/publish",
+  "permalink": "/api-reference/publish",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /fetch",
+    "permalink": "/api-reference/fetch"
+  },
+  "next": {
+    "title": "POST /publish-bundle",
+    "permalink": "/api-reference/publish-bundle"
+  }
+}

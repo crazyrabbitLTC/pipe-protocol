@@ -1,0 +1,24 @@
+{
+  "id": "api-reference/fetch",
+  "title": "GET /fetch",
+  "description": "Fetches a PipeRecord by its CID from a specified scope. This endpoint retrieves both the record metadata and its content, if available.",
+  "source": "@site/docs/api-reference/fetch.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/fetch",
+  "permalink": "/api-reference/fetch",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "GET /configuration",
+    "permalink": "/api-reference/configuration"
+  },
+  "next": {
+    "title": "POST /publish",
+    "permalink": "/api-reference/publish"
+  }
+}

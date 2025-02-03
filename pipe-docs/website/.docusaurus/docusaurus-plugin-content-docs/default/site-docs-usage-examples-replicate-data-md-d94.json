@@ -1,0 +1,24 @@
+{
+  "id": "usage-examples/replicate-data",
+  "title": "Replicating Data",
+  "description": "This guide demonstrates how to replicate data between different scopes in the Pipe protocol. We'll cover various replication scenarios and best practices for data distribution.",
+  "source": "@site/docs/usage-examples/replicate-data.md",
+  "sourceDirName": "usage-examples",
+  "slug": "/usage-examples/replicate-data",
+  "permalink": "/usage-examples/replicate-data",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "lastUpdatedAt": 1539502055000,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Managing Pinned Content",
+    "permalink": "/usage-examples/pin-unpin"
+  },
+  "next": {
+    "title": "Publishing Data and Schema",
+    "permalink": "/usage-examples/publish-data"
+  }
+}
