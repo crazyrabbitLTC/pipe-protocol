@@ -1,4 +1,4 @@
-import { PipeProtocol } from '../src/pipe';
+import { PipeProtocol } from '../src/pipe.js';
 
 async function testBasicOperations() {
   console.log('Starting basic operations test...\n');

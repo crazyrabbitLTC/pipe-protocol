@@ -1,5 +1,5 @@
 import { createHelia, Helia } from 'helia';
-import { PipeRecord, Scope } from './types';
+import { PipeRecord, Scope } from './types.js';
 import { config } from 'dotenv';
 import { CID } from 'multiformats/cid';
 import * as raw from 'multiformats/codecs/raw';

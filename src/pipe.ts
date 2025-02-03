@@ -1,7 +1,7 @@
-import { IpfsClient } from './ipfsClient';
-import { EncryptionService } from './encryption';
-import { PipeRecord, PipeBundle, Scope } from './types';
-import { PipeRecordSchema, PipeBundleSchema } from './schema';
+import { IpfsClient } from './ipfsClient.js';
+import { EncryptionService } from './encryption.js';
+import { PipeRecord, PipeBundle, Scope } from './types.js';
+import { PipeRecordSchema, PipeBundleSchema } from './schema.js';
 
 export interface PipeOptions {
   localNodeEndpoint?: string;
