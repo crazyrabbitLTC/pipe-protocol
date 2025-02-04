@@ -1,21 +1,33 @@
 /**
  * @file IpfsNode Implementation
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - DO NOT MODIFY WITHOUT TESTS
  * @lastModified 2024-02-03
  * 
  * This file implements a unified IPFS node using Helia with configurable storage backends.
  * 
  * IMPORTANT:
- * - All modifications must have corresponding tests
- * - Run `npm test` to verify changes
+ * - This is a STABLE implementation - any modifications require full test coverage
+ * - All changes must maintain backward compatibility
+ * - Changes affecting storage or networking require extensive testing
+ * - Run full test suite before and after modifications
+ * - Document all changes in the version history
  * 
- * Functionality:
+ * Core Functionality:
  * - Configurable storage backend (memory or filesystem)
  * - Network exposure control (enabled/disabled)
- * - Data addition and retrieval
+ * - Data addition and retrieval with CID management
  * - Explicit data export/import for private nodes
- * - Node lifecycle management
+ * - Node lifecycle management (init/cleanup)
+ * - Peer-to-peer communication (when networking enabled)
+ * 
+ * Test Coverage Requirements:
+ * - Storage operations (add/get/delete)
+ * - Network isolation verification
+ * - Error handling and recovery
+ * - Resource cleanup
+ * - Cross-node communication
+ * - Data integrity verification
  */
 
 import { createHelia } from 'helia';
