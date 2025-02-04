@@ -1,23 +1,35 @@
-import { create } from 'ipfs-http-client';
-import { PipeRecord, Scope, PipeIpfsOptions } from './types';
+/**
+ * @file IpfsClient Implementation
+ * @version 1.0.0
+ * @status IN_DEVELOPMENT
+ * @lastModified 2024-02-03
+ * 
+ * High-level IPFS client that provides application-specific operations
+ * on top of the IpfsNode implementation.
+ */
+
+import { PipeRecord, Scope } from './types';
 import { PipeRecordSchema } from './schema';
-import { config } from 'dotenv';
-config();
+import { IpfsNode } from './services/ipfs/ipfsNode';
+import { TextEncoder, TextDecoder } from 'util';
 
 export class IpfsClient {
-  private localNode: any;
-  private options: PipeIpfsOptions;
+  private node: IpfsNode;
+  private encoder = new TextEncoder();
+  private decoder = new TextDecoder();
 
-  constructor(options: PipeIpfsOptions) {
-    this.options = options;
+  constructor(node: IpfsNode) {
+    this.node = node;
   }
 
-  async init(endpoint?: string) {
+  async init(): Promise<void> {
     try {
-      this.localNode = create({ url: endpoint || this.options.endpoint });
-      await this.localNode.version();
+      // Ensure the node is initialized
+      if (!this.node) {
+        throw new Error('IPFS node not provided');
+      }
     } catch (error) {
-      console.error('Error initializing IPFS node:', error);
+      console.error('Error initializing IPFS client:', error);
       throw error;
     }
   }
@@ -25,15 +37,12 @@ export class IpfsClient {
   async publish(record: PipeRecord): Promise<PipeRecord> {
     try {
       const validatedRecord = PipeRecordSchema.parse(record);
-      const { cid } = await this.localNode.add(JSON.stringify(validatedRecord));
+      const data = this.encoder.encode(JSON.stringify(validatedRecord));
+      const cid = await this.node.add(data);
       
-      if (validatedRecord.pinned) {
-        await this.pin(cid.toString(), validatedRecord.scope);
-      }
-
       return {
         ...validatedRecord,
-        cid: cid.toString()
+        cid
       };
     } catch (error) {
       console.error('Error publishing record:', error);
@@ -41,34 +50,17 @@ export class IpfsClient {
     }
   }
 
-  async fetch(cid: string, scope: Scope): Promise<any> {
+  async fetch(cid: string, scope: Scope): Promise<PipeRecord> {
     try {
-      const chunks = [];
-      for await (const chunk of this.localNode.cat(cid)) {
-        chunks.push(chunk);
-      }
-      const content = Buffer.concat(chunks).toString();
-      return JSON.parse(content);
+      const data = await this.node.get(cid);
+      const content = this.decoder.decode(data);
+      const record = JSON.parse(content);
+      return {
+        ...record,
+        scope
+      };
     } catch (error) {
       console.error('Error fetching record:', error);
-      throw error;
-    }
-  }
-
-  async pin(cid: string, scope: Scope): Promise<void> {
-    try {
-      await this.localNode.pin.add(cid);
-    } catch (error) {
-      console.error('Error pinning record:', error);
-      throw error;
-    }
-  }
-
-  async unpin(cid: string, scope: Scope): Promise<void> {
-    try {
-      await this.localNode.pin.rm(cid);
-    } catch (error) {
-      console.error('Error unpinning record:', error);
       throw error;
     }
   }
@@ -89,53 +81,30 @@ export class IpfsClient {
   }
 
   async stop(): Promise<void> {
-    // No cleanup needed for HTTP client
+    // Node cleanup is handled by the node itself
   }
 
   getStatus() {
     return {
       localNode: true,
-      publicNode: false
+      publicNode: this.node['enableNetworking'] || false
     };
   }
 
-  getNodeInfo(scope: Scope) {
+  async getNodeInfo(_scope: Scope) {
+    const peerId = await this.node.getPeerId();
     return {
-      peerId: 'local'
+      peerId: peerId?.toString() || 'unknown'
     };
   }
 
-  async getStorageMetrics(scope: Scope) {
-    try {
-      const stats = await this.localNode.stats.repo();
-      return {
-        repoSize: stats.repoSize,
-        blockCount: stats.numObjects,
-        pinnedCount: 0
-      };
-    } catch (error) {
-      console.error('Error getting storage metrics:', error);
-      throw error;
-    }
-  }
-
-  async getPinnedCids(scope: Scope): Promise<string[]> {
-    try {
-      const pins = [];
-      for await (const pin of this.localNode.pin.ls()) {
-        pins.push(pin.cid.toString());
-      }
-      return pins;
-    } catch (error) {
-      console.error('Error getting pinned CIDs:', error);
-      throw error;
-    }
-  }
-
-  getConfiguration(scope: Scope) {
+  async getConfiguration(_scope: Scope) {
+    const peerId = await this.node.getPeerId();
+    const addrs = await this.node.getMultiaddrs();
+    
     return {
-      peerId: 'local',
-      addrs: []
+      peerId: peerId?.toString() || 'unknown',
+      addrs
     };
   }
 } 
