@@ -164,6 +164,15 @@ describe('PersistentIpfsNode', () => {
 
   describe('Network Exposure', () => {
     it('should operate in offline mode by default', async () => {
+      // Temporarily suppress console.error for expected CID not found errors
+      const originalConsoleError = console.error;
+      console.error = (...args: any[]) => {
+        // Only suppress 'Failed to get data: Error: CID not found' messages
+        if (!args[0]?.includes('Failed to get data: Error: CID not found')) {
+          originalConsoleError(...args);
+        }
+      };
+
       const node1Dir = await mkdtemp(join(tmpdir(), 'ipfs-test-1-'));
       const node2Dir = await mkdtemp(join(tmpdir(), 'ipfs-test-2-'));
       
@@ -194,6 +203,8 @@ describe('PersistentIpfsNode', () => {
         await node2.stop();
         await rm(node1Dir, { recursive: true, force: true });
         await rm(node2Dir, { recursive: true, force: true });
+        // Restore original console.error
+        console.error = originalConsoleError;
       }
     });
 

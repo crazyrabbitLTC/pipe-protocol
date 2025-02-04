@@ -78,37 +78,43 @@ describe('InMemoryIpfsNode', () => {
   })
 
   it('should support running multiple independent nodes', async () => {
-    // Create a second node
-    const node2 = new InMemoryIpfsNode()
-    await node2.init()
+    // Temporarily suppress console.error for expected CID not found errors
+    const originalConsoleError = console.error;
+    console.error = (...args: any[]) => {
+      const errorMessage = args.join(' ');
+      // Only suppress 'Failed to get data: Error: CID not found' messages
+      if (!errorMessage.includes('Failed to get data: Error: CID not found')) {
+        originalConsoleError(...args);
+      }
+    };
 
     try {
-      // Add different data to each node
-      const data1 = new TextEncoder().encode('Data for node 1')
-      const data2 = new TextEncoder().encode('Data for node 2')
+      // Create two independent nodes
+      const node1 = new InMemoryIpfsNode();
+      const node2 = new InMemoryIpfsNode();
+      
+      await node1.init();
+      await node2.init();
 
-      const cid1 = await node.add(data1)
-      const cid2 = await node2.add(data2)
+      // Add data to both nodes
+      const cid1 = await node1.add(new TextEncoder().encode('node1 data'));
+      const cid2 = await node2.add(new TextEncoder().encode('node2 data'));
 
-      // Verify the CIDs are different
-      expect(cid1).not.toBe(cid2)
+      // Verify each node can read its own data
+      const node1Data = await node1.get(cid1);
+      const node2Data = await node2.get(cid2);
+      expect(new TextDecoder().decode(node1Data)).toBe('node1 data');
+      expect(new TextDecoder().decode(node2Data)).toBe('node2 data');
 
-      // Try to get data1 from node1 (should succeed)
-      const retrieved1 = new TextDecoder().decode(await node.get(cid1))
-      expect(retrieved1).toBe('Data for node 1')
+      // Verify nodes cannot access each other's data
+      await expect(node1.get(cid2)).rejects.toThrow('CID not found');
+      await expect(node2.get(cid1)).rejects.toThrow('CID not found');
 
-      // Try to get data2 from node2 (should succeed)
-      const retrieved2 = new TextDecoder().decode(await node2.get(cid2))
-      expect(retrieved2).toBe('Data for node 2')
-
-      // Try to get data1 from node2 (should fail)
-      await expect(node2.get(cid1)).rejects.toThrow('CID not found')
-
-      // Try to get data2 from node1 (should fail)
-      await expect(node.get(cid2)).rejects.toThrow('CID not found')
+      await node1.stop();
+      await node2.stop();
     } finally {
-      // Clean up the second node
-      await node2.stop()
+      // Restore original console.error
+      console.error = originalConsoleError;
     }
   })
 }) 
