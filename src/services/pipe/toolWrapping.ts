@@ -18,6 +18,7 @@
  */
 
 import { Tool, ToolParameters } from '../../types/tool';
+import { generateSchema } from './schemaGeneration';
 
 interface PipeOptions {
   scope?: 'private' | 'public';
@@ -151,21 +152,24 @@ function wrapTool(tool: Tool): Tool {
       // Call original tool
       const result = await tool.call(params);
 
+      // Generate schema for the result
+      const resultSchema = generateSchema(result);
+
       // TODO: Implement token counting
-      // TODO: Implement IPFS storage
+      // TODO: Implement IPFS storage for both result and schema
       // For now, return a mock result
       return {
         cid: 'mock-cid',
         schemaCid: 'mock-schema-cid',
-        description: 'Mock result description',
-        type: 'object',
+        description: `Result from ${tool.name}`,
+        type: resultSchema.type,
         metadata: {
           tool: tool.name,
           scope: pipeOptions.scope,
           pinned: pipeOptions.pin,
           tokenCount: 0 // TODO: Implement actual token counting
         },
-        data: result
+        data: pipeOptions.storeResult ? undefined : result
       };
     }
   };
