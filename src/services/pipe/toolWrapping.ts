@@ -19,6 +19,7 @@
 
 import { Tool, ToolParameters } from '../../types/tool';
 import { generateSchema } from './schemaGeneration';
+import { countTokens, enforceTokenLimit } from './tokenCounting';
 
 interface PipeOptions {
   scope?: 'private' | 'public';
@@ -37,7 +38,8 @@ interface PipeResult {
     tool: string;
     scope: string;
     pinned: boolean;
-    tokenCount?: number;
+    tokenCount: number;
+    truncated?: boolean;
   };
   data?: any;
 }
@@ -72,7 +74,7 @@ function enhanceParameters(parameters: ToolParameters): ToolParameters {
           },
           maxTokens: {
             type: 'number',
-            description: 'Maximum number of tokens allowed'
+            description: 'Maximum number of tokens allowed in the result'
           }
         }
       }
@@ -121,9 +123,13 @@ function generateReturnSchema() {
           tokenCount: {
             type: 'number',
             description: 'Number of tokens in the result'
+          },
+          truncated: {
+            type: 'boolean',
+            description: 'Whether the result was truncated due to token limit'
           }
         },
-        required: ['tool', 'scope', 'pinned']
+        required: ['tool', 'scope', 'pinned', 'tokenCount']
       }
     },
     required: ['cid', 'schemaCid', 'description', 'type', 'metadata']
@@ -152,10 +158,21 @@ function wrapTool(tool: Tool): Tool {
       // Call original tool
       const result = await tool.call(params);
 
-      // Generate schema for the result
-      const resultSchema = generateSchema(result);
+      // Count tokens in the result
+      const tokenCount = countTokens(result);
 
-      // TODO: Implement token counting
+      // Apply token limit if specified
+      let finalResult = result;
+      let truncated = false;
+
+      if (pipeOptions.maxTokens && tokenCount > pipeOptions.maxTokens) {
+        finalResult = enforceTokenLimit(result, pipeOptions.maxTokens);
+        truncated = true;
+      }
+
+      // Generate schema for the result
+      const resultSchema = generateSchema(finalResult);
+
       // TODO: Implement IPFS storage for both result and schema
       // For now, return a mock result
       return {
@@ -167,9 +184,10 @@ function wrapTool(tool: Tool): Tool {
           tool: tool.name,
           scope: pipeOptions.scope,
           pinned: pipeOptions.pin,
-          tokenCount: 0 // TODO: Implement actual token counting
+          tokenCount,
+          ...(truncated && { truncated })
         },
-        data: pipeOptions.storeResult ? undefined : result
+        data: pipeOptions.storeResult ? undefined : finalResult
       };
     }
   };
