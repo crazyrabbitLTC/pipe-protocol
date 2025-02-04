@@ -13,6 +13,7 @@
  * - Error handling for uninitialized nodes
  * - Multiple operation handling
  * - Node cleanup
+ * - Multiple node instances
  * 
  * IMPORTANT:
  * - When adding new features to InMemoryIpfsNode, add corresponding tests here
@@ -74,5 +75,40 @@ describe('InMemoryIpfsNode', () => {
     
     expect(retrieved1).toBe('First message')
     expect(retrieved2).toBe('Second message')
+  })
+
+  it('should support running multiple independent nodes', async () => {
+    // Create a second node
+    const node2 = new InMemoryIpfsNode()
+    await node2.init()
+
+    try {
+      // Add different data to each node
+      const data1 = new TextEncoder().encode('Data for node 1')
+      const data2 = new TextEncoder().encode('Data for node 2')
+
+      const cid1 = await node.add(data1)
+      const cid2 = await node2.add(data2)
+
+      // Verify the CIDs are different
+      expect(cid1).not.toBe(cid2)
+
+      // Try to get data1 from node1 (should succeed)
+      const retrieved1 = new TextDecoder().decode(await node.get(cid1))
+      expect(retrieved1).toBe('Data for node 1')
+
+      // Try to get data2 from node2 (should succeed)
+      const retrieved2 = new TextDecoder().decode(await node2.get(cid2))
+      expect(retrieved2).toBe('Data for node 2')
+
+      // Try to get data1 from node2 (should fail)
+      await expect(node2.get(cid1)).rejects.toThrow('CID not found')
+
+      // Try to get data2 from node1 (should fail)
+      await expect(node.get(cid2)).rejects.toThrow('CID not found')
+    } finally {
+      // Clean up the second node
+      await node2.stop()
+    }
   })
 }) 
