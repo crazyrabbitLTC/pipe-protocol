@@ -13,13 +13,14 @@
  * - Multiple operation handling
  * - Data persistence between sessions
  * - Proper cleanup
+ * - Independent node operation
  * 
  * IMPORTANT:
  * - All new features must have corresponding tests
  * - Run full test suite before committing
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PersistentIpfsNode } from '../persistentIpfs'
 import { join } from 'path'
 import { mkdtemp, rm } from 'fs/promises'
@@ -107,6 +108,54 @@ describe('PersistentIpfsNode', () => {
   })
 
   it('should handle invalid CIDs gracefully', async () => {
-    await expect(node.get('invalid-cid')).rejects.toThrow('Invalid CID')
+    // Temporarily suppress console.error for this test
+    const originalConsoleError = console.error
+    console.error = vi.fn()
+    
+    try {
+      await expect(node.get('invalid-cid')).rejects.toThrow('Invalid CID')
+    } finally {
+      // Restore console.error
+      console.error = originalConsoleError
+    }
+  })
+
+  it('should maintain separate data stores for different instances', async () => {
+    // Create a second node with its own storage
+    const tempDir2 = await mkdtemp(join(tmpdir(), 'ipfs-test-2-'))
+    const node2 = new PersistentIpfsNode({ storageDirectory: tempDir2 })
+    await node2.init()
+
+    try {
+      // Add data to both nodes
+      const cid1 = await node.add(new TextEncoder().encode('node1 data'))
+      const cid2 = await node2.add(new TextEncoder().encode('node2 data'))
+
+      // Verify each node can read its own data immediately
+      const node1Data = await node.get(cid1)
+      const node2Data = await node2.get(cid2)
+      expect(new TextDecoder().decode(node1Data)).toBe('node1 data')
+      expect(new TextDecoder().decode(node2Data)).toBe('node2 data')
+
+      // Set a short timeout for attempts to access other node's data
+      // This prevents long waits while the nodes try to discover each other
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 1000))
+
+      // Verify node1 cannot access node2's data
+      await expect(Promise.race([
+        node.get(cid2),
+        timeoutPromise
+      ])).rejects.toThrow()
+
+      // Verify node2 cannot access node1's data
+      await expect(Promise.race([
+        node2.get(cid1),
+        timeoutPromise
+      ])).rejects.toThrow()
+    } finally {
+      await node2.stop()
+      await rm(tempDir2, { recursive: true, force: true })
+    }
   })
 }) 

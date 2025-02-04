@@ -24,6 +24,10 @@ import type { UnixFS } from '@helia/unixfs'
 import { FsBlockstore } from 'blockstore-fs'
 import { join } from 'path'
 import { CID } from 'multiformats/cid'
+import EventEmitter from 'events'
+
+// Increase the default max listeners
+EventEmitter.setMaxListeners(20)
 
 export interface PersistentIpfsOptions {
   storageDirectory: string
@@ -35,12 +39,17 @@ export class PersistentIpfsNode {
   private blockstore: FsBlockstore | null = null
   private cidMap: Map<string, CID> = new Map()
   private readonly storageDirectory: string
+  private isInitialized: boolean = false
 
   constructor(options: PersistentIpfsOptions) {
     this.storageDirectory = options.storageDirectory
   }
 
   async init(): Promise<void> {
+    if (this.isInitialized) {
+      return
+    }
+
     try {
       // Create a blockstore using the filesystem
       this.blockstore = new FsBlockstore(join(this.storageDirectory, 'blocks'))
@@ -53,14 +62,37 @@ export class PersistentIpfsNode {
       })
 
       this.fs = unixfs(this.helia)
+      this.isInitialized = true
     } catch (error) {
       console.error('Failed to initialize persistent IPFS node:', error)
+      await this.cleanup()
+      throw error
+    }
+  }
+
+  private async cleanup(): Promise<void> {
+    try {
+      if (this.helia) {
+        await this.helia.stop()
+        this.helia = null
+      }
+      
+      if (this.blockstore) {
+        await this.blockstore.close()
+        this.blockstore = null
+      }
+
+      this.fs = null
+      this.cidMap.clear()
+      this.isInitialized = false
+    } catch (error) {
+      console.error('Error during cleanup:', error)
       throw error
     }
   }
 
   async add(data: Uint8Array): Promise<string> {
-    if (!this.fs) {
+    if (!this.isInitialized || !this.fs) {
       throw new Error('IPFS node not initialized')
     }
 
@@ -76,7 +108,7 @@ export class PersistentIpfsNode {
   }
 
   async get(cidStr: string): Promise<Uint8Array> {
-    if (!this.fs) {
+    if (!this.isInitialized || !this.fs) {
       throw new Error('IPFS node not initialized')
     }
 
@@ -94,7 +126,8 @@ export class PersistentIpfsNode {
       }
 
       let content = new Uint8Array()
-      for await (const chunk of this.fs.cat(cid)) {
+      // Type assertion to handle CID version compatibility
+      for await (const chunk of this.fs.cat(cid as any)) {
         const newContent = new Uint8Array(content.length + chunk.length)
         newContent.set(content)
         newContent.set(chunk, content.length)
@@ -104,29 +137,17 @@ export class PersistentIpfsNode {
       // Cache the successful CID for future use
       this.cidMap.set(cidStr, cid)
       return content
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error && 
+          (error.message.includes('not found') || error.message.includes('does not exist'))) {
+        throw new Error('CID not found')
+      }
       console.error('Failed to get data:', error)
       throw error
     }
   }
 
   async stop(): Promise<void> {
-    try {
-      if (this.helia) {
-        await this.helia.stop()
-        this.helia = null
-        this.fs = null
-      }
-      
-      if (this.blockstore) {
-        await this.blockstore.close()
-        this.blockstore = null
-      }
-
-      this.cidMap.clear()
-    } catch (error) {
-      console.error('Failed to stop IPFS node:', error)
-      throw error
-    }
+    await this.cleanup()
   }
 } 
