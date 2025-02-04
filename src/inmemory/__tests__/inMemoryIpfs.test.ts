@@ -1,3 +1,25 @@
+/**
+ * @file InMemoryIpfsNode Test Suite
+ * @version 1.0.0
+ * @status STABLE - COMPLETE TEST COVERAGE
+ * @lastModified 2024-02-03
+ * 
+ * This file contains the complete test suite for the InMemoryIpfsNode implementation.
+ * All core functionality is covered by these tests.
+ * 
+ * Test Coverage:
+ * - Node initialization
+ * - Data addition and retrieval
+ * - Error handling for uninitialized nodes
+ * - Multiple operation handling
+ * - Node cleanup
+ * 
+ * IMPORTANT:
+ * - When adding new features to InMemoryIpfsNode, add corresponding tests here
+ * - Maintain existing test coverage when modifying
+ * - All tests must pass before committing changes
+ */
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { InMemoryIpfsNode } from '../inMemoryIpfs'
 
