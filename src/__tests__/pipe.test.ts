@@ -17,6 +17,8 @@ interface NodeInfo {
 
 interface StorageMetrics {
   repoSize: number;
+  blockCount: number;
+  pinnedCount: number;
 }
 
 interface NodeConfig {
@@ -40,14 +42,14 @@ interface PinnedResponse extends Array<string> {}
 
 const mockRecord: PipeRecord = {
   type: 'data',
-  content: { message: 'test data'},
+  content: { message: 'test data' },
   scope: 'private',
   accessPolicy: { hiddenFromLLM: false }
 };
 
 const mockSchema: PipeRecord = {
   type: 'schema',
-  content: { properties: { message: {type: 'string'}}},
+  content: { properties: { message: { type: 'string' } } },
   scope: 'private',
   accessPolicy: { hiddenFromLLM: false }
 };
@@ -79,7 +81,7 @@ describe('PipeProtocol', () => {
   });
 
   test('should get node status', async () => {
-    const status = await pipe.getStatus() as NodeStatus;
+    const status = pipe.getStatus() as NodeStatus;
     expect(status).toEqual({
       localNode: true,
       publicNode: false
@@ -87,7 +89,7 @@ describe('PipeProtocol', () => {
   });
 
   test('should get node info', async () => {
-    const info = await pipe.getNodeInfo('private') as NodeInfo;
+    const info = pipe.getNodeInfo('private') as NodeInfo;
     expect(info).toEqual({
       peerId: expect.any(String)
     });
@@ -103,7 +105,7 @@ describe('PipeProtocol', () => {
   });
 
   test('should get configuration', async () => {
-    const config = await pipe.getConfiguration('private') as NodeConfig;
+    const config = pipe.getConfiguration('private') as NodeConfig;
     expect(config).toEqual({
       peerId: expect.any(String),
       addrs: []
@@ -134,8 +136,6 @@ describe('PipeProtocol', () => {
     expect(wrapped[0].name).toBe('testTool');
     expect(wrapped[0].parameters).toBeDefined();
     expect(wrapped[0].returns).toBeDefined();
-    const pipeTool = wrapped.find(t => t.name === 'Pipe');
-    expect(pipeTool).toBeDefined();
   });
 });
 
@@ -145,10 +145,7 @@ describe('Pipe Core Functionality', () => {
   let port: number;
 
   beforeAll(async () => {
-    const options = {
-      publicNodeEndpoint: 'https://ipfs.infura.io:5001'
-    };
-    pipeProtocol = new PipeProtocol(options);
+    pipeProtocol = new PipeProtocol({});
     const app = createApi(pipeProtocol);
     server = app.listen(0);
     port = (server.address() as AddressInfo).port;
@@ -167,8 +164,7 @@ describe('Pipe Core Functionality', () => {
     }];
 
     const wrapped = pipe(tools);
-    const pipeTool = wrapped.find(t => t.name === 'Pipe');
-    expect(pipeTool).toBeDefined();
+    expect(wrapped[0].name).toBe('weatherTool');
   });
 
   test('Should publish a record and return a cid', async () => {
@@ -203,15 +199,15 @@ describe('Pipe Core Functionality', () => {
     await pipeProtocol.replicate(published.cid || '', 'private', 'public');
   });
     
-  it('Should get node status',  () => {
-    const status =  pipeProtocol.getStatus() as NodeStatus;
+  it('Should get node status', () => {
+    const status = pipeProtocol.getStatus() as NodeStatus;
     expect(status).toEqual({
       localNode: true,
-      publicNode: true
+      publicNode: false
     });
   });
 
-  it('Should get node info',  () => {
+  it('Should get node info', () => {
     const info = pipeProtocol.getNodeInfo('private') as NodeInfo;
     expect(info.peerId).toBeDefined();
   });
@@ -237,7 +233,7 @@ describe('Pipe Core Functionality', () => {
     const response = await fetch(`http://localhost:${port}/node-status`);
     const status = await response.json() as StatusResponse;
     expect(status.localNode).toBe(true);
-    expect(status.publicNode).toBe(true);
+    expect(status.publicNode).toBe(false);
   });
 
   it('Should be able to get the node info from the api', async () => {

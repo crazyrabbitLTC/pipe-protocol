@@ -1,54 +1,53 @@
 // Create a shared data store for all tests
 export const mockDataStore = new Map<string, any>();
-export const mockPinnedCids = new Set<string>();
+export const mockPinnedCids = new Map<string, Set<string>>();
 
-const mockIPFSClient = {
-  add: jest.fn().mockImplementation(async (data: any) => {
-    const cid = `QmTest${Math.random().toString(36).substring(7)}`;
-    // Store the data as a string, just like the real IPFS client
-    const stringData = typeof data === 'string' ? data : JSON.stringify(data);
-    mockDataStore.set(cid, stringData);
-    return { path: cid };
-  }),
+export const create = () => ({
+  add: async (content: string) => {
+    const cid = `mock-cid-${mockDataStore.size}`;
+    mockDataStore.set(cid, content);
+    return { cid: { toString: () => cid } };
+  },
 
-  cat: jest.fn().mockImplementation(function* (cid: string) {
-    const data = mockDataStore.get(cid);
-    if (!data) {
-      throw new Error('CID not found');
+  cat: async function* (cid: string) {
+    const content = mockDataStore.get(cid);
+    if (!content) {
+      throw new Error(`Content not found for CID: ${cid}`);
     }
-    // Return the data as a Buffer, just like the real IPFS client
-    yield Buffer.from(data);
-  }),
+    yield Buffer.from(content);
+  },
 
   pin: {
-    add: jest.fn().mockImplementation(async (cid: string) => {
-      mockPinnedCids.add(cid);
-      return undefined;
-    }),
-    rm: jest.fn().mockImplementation(async (cid: string) => {
-      mockPinnedCids.delete(cid);
-      return undefined;
-    }),
-    ls: jest.fn().mockImplementation(function* () {
-      for (const cid of mockPinnedCids) {
+    add: async (cid: string) => {
+      const scope = 'private';
+      if (!mockPinnedCids.has(scope)) {
+        mockPinnedCids.set(scope, new Set());
+      }
+      mockPinnedCids.get(scope)?.add(cid);
+    },
+    rm: async (cid: string) => {
+      const scope = 'private';
+      mockPinnedCids.get(scope)?.delete(cid);
+    },
+    ls: async function* () {
+      const scope = 'private';
+      const pins = mockPinnedCids.get(scope) || new Set();
+      for (const cid of pins) {
         yield { cid: { toString: () => cid } };
       }
-    })
+    }
   },
 
-  id: jest.fn().mockResolvedValue({ id: 'test-node' }),
+  version: async () => ({ version: '0.0.1' }),
 
   stats: {
-    repo: jest.fn().mockResolvedValue({
-      repoSize: 1000,
-      storageMax: 10000,
-      numObjects: mockDataStore.size
+    repo: async () => ({
+      repoSize: 0,
+      numObjects: 0,
+      storageMax: 0
     })
-  },
-
-  stop: jest.fn().mockResolvedValue(undefined),
-  getEndpointConfig: jest.fn().mockReturnValue('http://localhost:5001')
-};
+  }
+});
 
 // Create a store for record metadata
 export const mockRecordStore = new Map<string, any>();
@@ -62,5 +61,4 @@ mockIPFSClient.add = jest.fn().mockImplementation(async (data: any) => {
   return { path: cid };
 });
 
-export const create = jest.fn(() => mockIPFSClient);
 export type { IPFSHTTPClient } from 'ipfs-http-client'; 
