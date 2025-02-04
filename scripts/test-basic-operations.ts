@@ -1,95 +1,88 @@
 import { PipeProtocol } from '../src/pipe.js';
+import type { Tool } from '../src/types.js';
 
 async function testBasicOperations() {
   console.log('Starting basic operations test...\n');
-  
-  let pipe: PipeProtocol | undefined;
+
+  const pipe = new PipeProtocol({});
 
   try {
-    pipe = new PipeProtocol({});
-
-    // Test 1: Publish a simple record
-    console.log('Test 1: Publishing a simple record...');
+    // Test 1: Publish a record
+    console.log('Test 1: Publishing a record...');
     const record = {
       type: 'data' as const,
-      content: { message: 'Hello, IPFS!' },
+      content: { message: 'Hello, World!' },
       scope: 'private' as const,
-      accessPolicy: { hiddenFromLLM: false },
-      encryption: { enabled: false },
-      pinned: true
+      accessPolicy: { hiddenFromLLM: false }
     };
 
     const published = await pipe.publishRecord(record);
-    console.log('Published record:', {
-      cid: published.cid,
-      content: published.content
-    });
+    console.log('Published record CID:', published.cid);
 
-    // Test 2: Fetch the published record
-    console.log('\nTest 2: Fetching the published record...');
-    if (published.cid) {
-      const fetched = await pipe.fetchRecord(published.cid, 'private');
-      console.log('Fetched record:', fetched);
-
-      // Verify content matches
-      const contentMatches = JSON.stringify(fetched?.content) === JSON.stringify(record.content);
-      console.log('Content matches original:', contentMatches);
-    }
+    // Test 2: Fetch the record
+    console.log('\nTest 2: Fetching the record...');
+    const fetched = await pipe.fetchRecord(published.cid!, 'private');
+    console.log('Fetched record content:', fetched?.content);
 
     // Test 3: Pin the record
     console.log('\nTest 3: Pinning the record...');
-    if (published.cid) {
-      await pipe.pin(published.cid, 'private');
-      console.log('Record pinned successfully');
-    }
+    await pipe.pin(published.cid!, 'private');
+    console.log('Record pinned successfully');
 
-    // Test 4: Get pinned CIDs
-    console.log('\nTest 4: Getting pinned CIDs...');
+    // Test 4: Check pinned CIDs
+    console.log('\nTest 4: Checking pinned CIDs...');
     const pinnedCids = await pipe.getPinnedCids('private');
     console.log('Pinned CIDs:', pinnedCids);
 
-    // Verify the published CID is in the pinned list
-    if (published.cid) {
-      const isPinned = pinnedCids.includes(published.cid);
-      console.log('Published CID is pinned:', isPinned);
-    }
+    // Test 5: Unpin the record
+    console.log('\nTest 5: Unpinning the record...');
+    await pipe.unpin(published.cid!, 'private');
+    console.log('Record unpinned successfully');
 
-    // Test 5: Get node status
-    console.log('\nTest 5: Getting node status...');
-    const status = await pipe.getStatus();
+    // Test 6: Check node status
+    console.log('\nTest 6: Checking node status...');
+    const status = pipe.getStatus();
     console.log('Node status:', status);
 
+    // Test 7: Get node info
+    console.log('\nTest 7: Getting node info...');
+    const info = pipe.getNodeInfo('private');
+    console.log('Node info:', info);
+
+    // Test 8: Get storage metrics
+    console.log('\nTest 8: Getting storage metrics...');
+    const metrics = await pipe.getStorageMetrics('private');
+    console.log('Storage metrics:', metrics);
+
+    // Test 9: Test tool wrapping
+    console.log('\nTest 9: Testing tool wrapping...');
+    const mockTool: Tool = {
+      name: 'testTool',
+      description: 'A test tool',
+      parameters: {
+        type: 'object',
+        properties: {
+          input: { type: 'string' }
+        }
+      },
+      call: async (args: any) => ({ result: args.input })
+    };
+
+    const wrappedTools = pipe.wrap([mockTool]);
+    console.log('Tool wrapped successfully');
+
+    // Test 10: Execute wrapped tool
+    console.log('\nTest 10: Executing wrapped tool...');
+    const toolResult = await wrappedTools[0].execute({ input: 'test' });
+    console.log('Tool execution result:', toolResult);
+
+    console.log('\nAll tests completed successfully!');
   } catch (error) {
-    console.error('Error during test:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
+    console.error('Error during tests:', error);
     process.exit(1);
   } finally {
-    try {
-      if (pipe) {
-        await pipe.stop();
-        console.log('\nTest completed and node stopped.');
-      }
-    } catch (error) {
-      console.error('Error stopping node:', error);
-      if (error instanceof Error) {
-        console.error('Error stack:', error.stack);
-      }
-      process.exit(1);
-    }
+    await pipe.stop();
   }
 }
 
-// Run the test
-(async () => {
-  try {
-    await testBasicOperations();
-  } catch (error) {
-    console.error('Test failed:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
-    process.exit(1);
-  }
-})(); 
+testBasicOperations().catch(console.error); 

@@ -1,38 +1,26 @@
 import { z } from 'zod';
-import { AccessPolicy, EncryptionInfo, PipeRecord, PipeBundle } from './types';
-
-const EncryptionSchema: z.ZodSchema<EncryptionInfo> = z.object({
-  enabled: z.boolean(),
-  method: z.string().optional(),
-  keyRef: z.string().optional(),
-  nonce: z.string().optional(),
-  ciphertext: z.boolean().optional(),
-});
+import { AccessPolicy, PipeRecord, PipeBundle } from './types';
 
 const AccessPolicySchema: z.ZodSchema<AccessPolicy> = z.object({
-  hiddenFromLLM: z.boolean(),
+  hiddenFromLLM: z.boolean().optional(),
   allowedTools: z.array(z.string()).optional(),
-  allowedUsers: z.array(z.string()).optional()
+  allowedUsers: z.array(z.string()).optional(),
 });
 
-const PipeRecordSchema = z.object({
-  cid: z.string().optional(),
-  content: z.any(),
+export const PipeRecordSchema = z.object({
+  cid: z.string().nullable().optional(),
+  content: z.any().nullable().optional(),
   type: z.enum(['data', 'schema']),
   scope: z.enum(['private', 'public', 'machine', 'user']),
-  accessPolicy: AccessPolicySchema,
-  encryption: z.object({
-    enabled: z.boolean(),
-    method: z.string().optional(),
-    keyRef: z.string().optional(),
-    ciphertext: z.boolean().optional()
-  })
-});
-
-const PipeBundleSchema = z.object({
-  schemaRecord: PipeRecordSchema,
-  dataRecord: PipeRecordSchema,
+  pinned: z.boolean().optional(),
+  accessPolicy: AccessPolicySchema.optional(),
+  metadata: z.record(z.any()).optional(),
   timestamp: z.string().optional()
 });
 
-export { AccessPolicySchema, PipeRecordSchema, PipeBundleSchema }; 
+export const PipeBundleSchema = z.object({
+  schemaRecord: PipeRecordSchema,
+  dataRecord: PipeRecordSchema,
+  combinedScope: z.enum(['private', 'public', 'machine', 'user']),
+  timestamp: z.string().optional()
+}); 

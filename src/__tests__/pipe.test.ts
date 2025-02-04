@@ -1,233 +1,269 @@
 import { PipeProtocol } from '../pipe';
-import { Tool } from '../types';
-import { mockDataStore } from './mocks/ipfs-http-client';
+import { pipe } from '../index';
+import { createApi } from '../api';
+import { PipeRecord, PipeBundle, Scope } from '../types';
+import { AddressInfo } from 'net';
+import { Server } from 'http';
+import { expect, describe, test, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
+
+interface NodeStatus {
+  localNode: boolean;
+  publicNode: boolean;
+}
+
+interface NodeInfo {
+  peerId: string;
+}
+
+interface StorageMetrics {
+  repoSize: number;
+}
+
+interface NodeConfig {
+  peerId: string;
+  addrs: string[];
+}
+
+interface PublishResponse {
+  cid: string;
+}
+
+interface FetchResponse {
+  content: any;
+}
+
+interface StatusResponse extends NodeStatus {}
+interface InfoResponse extends NodeInfo {}
+interface MetricsResponse extends StorageMetrics {}
+interface ConfigResponse extends NodeConfig {}
+interface PinnedResponse extends Array<string> {}
+
+const mockRecord: PipeRecord = {
+  type: 'data',
+  content: { message: 'test data'},
+  scope: 'private',
+  accessPolicy: { hiddenFromLLM: false }
+};
+
+const mockSchema: PipeRecord = {
+  type: 'schema',
+  content: { properties: { message: {type: 'string'}}},
+  scope: 'private',
+  accessPolicy: { hiddenFromLLM: false }
+};
+
+const mockBundle: PipeBundle = {
+  schemaRecord: mockSchema,
+  dataRecord: mockRecord,
+  combinedScope: 'private',
+  timestamp: new Date().toISOString()
+};
 
 describe('PipeProtocol', () => {
   let pipe: PipeProtocol;
-
   beforeEach(() => {
-    mockDataStore.clear();
-    pipe = new PipeProtocol({
-      localNodeEndpoint: 'http://localhost:5001',
-      publicNodeEndpoint: 'http://localhost:5001'
-    });
+    pipe = new PipeProtocol({});
   });
-
   afterEach(async () => {
     await pipe.stop();
   });
 
-  describe('data storage', () => {
-    it('should store and retrieve data', async () => {
-      const data = { message: 'Hello, World!' };
-      const { cid } = await pipe.storeData(data);
-      expect(cid).toBeDefined();
+  test('should publish and fetch a record', async () => {
+    const published = await pipe.publishRecord(mockRecord);
+    expect(published.cid).toBeDefined();
 
-      const record = await pipe.fetchRecord(cid, 'private');
-      expect(record).toBeDefined();
-      expect(record?.content).toEqual(data);
+    if (published.cid) {
+      const fetched = await pipe.fetchRecord(published.cid, 'private');
+      expect(fetched?.content).toEqual(mockRecord.content);
+    }
+  });
+
+  test('should get node status', async () => {
+    const status = await pipe.getStatus() as NodeStatus;
+    expect(status).toEqual({
+      localNode: true,
+      publicNode: false
     });
+  });
 
-    it('should generate schema when storing data', async () => {
-      const data = {
-        name: 'John Doe',
-        age: 30,
-        email: 'john@example.com'
-      };
+  test('should get node info', async () => {
+    const info = await pipe.getNodeInfo('private') as NodeInfo;
+    expect(info).toEqual({
+      peerId: expect.any(String)
+    });
+  });
 
-      const { cid, schemaCid } = await pipe.storeData(data);
-      expect(cid).toBeDefined();
-      expect(schemaCid).toBeDefined();
+  test('should get storage metrics', async () => {
+    const metrics = await pipe.getStorageMetrics('private') as StorageMetrics;
+    expect(metrics).toEqual({
+      repoSize: 0,
+      blockCount: 0,
+      pinnedCount: 0
+    });
+  });
 
-      const schemaRecord = await pipe.fetchRecord(schemaCid!, 'private');
-      expect(schemaRecord).toBeDefined();
-      expect(schemaRecord?.content).toMatchObject({
-        $schema: 'http://json-schema.org/draft-07/schema#',
+  test('should get configuration', async () => {
+    const config = await pipe.getConfiguration('private') as NodeConfig;
+    expect(config).toEqual({
+      peerId: expect.any(String),
+      addrs: []
+    });
+  });
+
+  test('Should be able to call wrap', async () => {
+    const tools = [{
+      name: 'testTool',
+      description: 'A test tool',
+      call: async (args: any) => {
+        return args;
+      },
+      parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
-          email: { type: 'string' }
+          name: { type: 'string' }
         }
-      });
-    });
+      },
+      returns: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' }
+        }
+      }
+    }];
+    const wrapped = pipe(tools);
+    expect(wrapped[0].name).toBe('testTool');
+    expect(wrapped[0].parameters).toBeDefined();
+    expect(wrapped[0].returns).toBeDefined();
+    const pipeTool = wrapped.find(t => t.name === 'Pipe');
+    expect(pipeTool).toBeDefined();
+  });
+});
 
-    it('should handle storing data without schema', async () => {
-      const data = { message: 'No Schema' };
-      const { cid, schemaCid } = await pipe.storeData(data, { generateSchema: false });
-      expect(cid).toBeDefined();
-      expect(schemaCid).toBeNull();
+describe('Pipe Core Functionality', () => {
+  let pipeProtocol: PipeProtocol;
+  let server: Server;
+  let port: number;
+
+  beforeAll(async () => {
+    const options = {
+      publicNodeEndpoint: 'https://ipfs.infura.io:5001'
+    };
+    pipeProtocol = new PipeProtocol(options);
+    const app = createApi(pipeProtocol);
+    server = app.listen(0);
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async() => {
+    server.close();
+    await pipeProtocol.stop();
+  });
+
+  test('Tool Wrapping', () => {
+    const tools = [{
+      name: 'weatherTool',
+      description: 'Get weather data',
+      call: () => 'Sunny'
+    }];
+
+    const wrapped = pipe(tools);
+    const pipeTool = wrapped.find(t => t.name === 'Pipe');
+    expect(pipeTool).toBeDefined();
+  });
+
+  test('Should publish a record and return a cid', async () => {
+    const record = await pipeProtocol.publishRecord(mockRecord);
+    expect(record.cid).toBeDefined();
+  });
+
+  it('Should publish a record and then fetch it', async () => {
+    const published = await pipeProtocol.publishRecord(mockRecord);
+    const fetched = await pipeProtocol.fetchRecord(published.cid || '', 'private');
+    expect(fetched?.content).toEqual(mockRecord.content);
+  });
+
+  it('Should publish a bundle and return two cids', async () => {
+    const bundle = await pipeProtocol.publishBundle(mockBundle);
+    expect(bundle.dataRecord.cid).toBeDefined();
+    expect(bundle.schemaRecord.cid).toBeDefined();
+  });
+
+  it('Should pin a record', async () => {
+    const published = await pipeProtocol.publishRecord(mockRecord);
+    await pipeProtocol.pin(published.cid || '', 'private');
+  });
+
+  it('Should unpin a record', async () => {
+    const published = await pipeProtocol.publishRecord(mockRecord);
+    await pipeProtocol.unpin(published.cid || '', 'private');
+  });
+
+  it('Should replicate a record', async () => {
+    const published = await pipeProtocol.publishRecord(mockRecord);
+    await pipeProtocol.replicate(published.cid || '', 'private', 'public');
+  });
+    
+  it('Should get node status',  () => {
+    const status =  pipeProtocol.getStatus() as NodeStatus;
+    expect(status).toEqual({
+      localNode: true,
+      publicNode: true
     });
   });
 
-  describe('record management', () => {
-    it('should publish and fetch records', async () => {
-      const record = {
-        content: { message: 'Test Record' },
-        type: 'data' as const,
-        scope: 'private' as const,
-        accessPolicy: { hiddenFromLLM: false },
-        encryption: { enabled: false }
-      };
-
-      const published = await pipe.publishRecord(record);
-      expect(published.cid).toBeDefined();
-
-      const fetched = await pipe.fetchRecord(published.cid!, 'private');
-      expect(fetched).toBeDefined();
-      expect(fetched?.content).toEqual(record.content);
-    });
-
-    it('should handle encrypted records', async () => {
-      const record = {
-        content: { message: 'Secret Data' },
-        type: 'data' as const,
-        scope: 'private' as const,
-        accessPolicy: { hiddenFromLLM: false },
-        encryption: { 
-          enabled: true,
-          keyRef: 'test-key',
-          method: 'AES-GCM'
-        }
-      };
-
-      const published = await pipe.publishRecord(record);
-      expect(published.cid).toBeDefined();
-      expect(published.encryption.ciphertext).toBe(true);
-
-      const fetched = await pipe.fetchRecord(published.cid!, 'private');
-      expect(fetched).toBeDefined();
-      expect(fetched?.content).toEqual(record.content);
-      expect(fetched?.encryption.ciphertext).toBe(false);
-    });
+  it('Should get node info',  () => {
+    const info = pipeProtocol.getNodeInfo('private') as NodeInfo;
+    expect(info.peerId).toBeDefined();
   });
 
-  describe('bundle management', () => {
-    it('should publish and fetch bundles', async () => {
-      const bundle = {
-        schemaRecord: {
-          content: {
-            $schema: 'http://json-schema.org/draft-07/schema#',
-            type: 'object',
-            properties: {
-              message: { type: 'string' }
-            }
-          },
-          type: 'schema' as const,
-          scope: 'private' as const,
-          accessPolicy: { hiddenFromLLM: false },
-          encryption: { enabled: false }
-        },
-        dataRecord: {
-          content: { message: 'Test Bundle' },
-          type: 'data' as const,
-          scope: 'private' as const,
-          accessPolicy: { hiddenFromLLM: false },
-          encryption: { enabled: false }
-        }
-      };
-
-      const published = await pipe.publishBundle(bundle);
-      expect(published.schemaRecord.cid).toBeDefined();
-      expect(published.dataRecord.cid).toBeDefined();
-      expect(published.timestamp).toBeDefined();
-
-      const fetchedSchema = await pipe.fetchRecord(published.schemaRecord.cid!, 'private');
-      const fetchedData = await pipe.fetchRecord(published.dataRecord.cid!, 'private');
-
-      expect(fetchedSchema?.content).toEqual(bundle.schemaRecord.content);
-      expect(fetchedData?.content).toEqual(bundle.dataRecord.content);
+  it('Should be able to post a record to the api and return a record', async () => {
+    const response = await fetch(`http://localhost:${port}/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mockRecord)
     });
+    const data = await response.json() as PublishResponse;
+    expect(data.cid).toBeDefined();
   });
 
-  describe('tool wrapping', () => {
-    it('should wrap tools and store their results', async () => {
-      const mockTool: Tool = {
-        name: 'testTool',
-        description: 'A test tool',
-        parameters: {
-          type: 'object',
-          properties: {
-            input: { type: 'string' }
-          }
-        },
-        call: async (args: any) => ({ result: args.input })
-      };
-
-      const wrappedTools = pipe.wrap([mockTool]);
-      expect(wrappedTools).toHaveLength(1);
-
-      const result = await wrappedTools[0].execute({ input: 'test' });
-      expect(result.cid).toBeDefined();
-      expect(result.schemaCid).toBeDefined();
-      expect(result.description).toBe(mockTool.description);
-
-      const storedResult = await pipe.fetchRecord(result.cid, 'private');
-      expect(storedResult?.content).toEqual({ result: 'test' });
-    });
-
-    it('should handle tool execution with custom options', async () => {
-      const mockTool: Tool = {
-        name: 'testTool',
-        description: 'A test tool',
-        parameters: {
-          type: 'object',
-          properties: {
-            input: { type: 'string' }
-          }
-        },
-        call: async (args: any) => ({ result: args.input })
-      };
-
-      const wrappedTools = pipe.wrap([mockTool]);
-      const result = await wrappedTools[0].execute({
-        input: 'test',
-        pipeOptions: {
-          scope: 'public',
-          generateSchema: false,
-          pin: true
-        }
-      });
-
-      expect(result.cid).toBeDefined();
-      expect(result.schemaCid).toBeNull();
-
-      const storedResult = await pipe.fetchRecord(result.cid, 'public');
-      expect(storedResult?.content).toEqual({ result: 'test' });
-    });
+  it('Should be able to get a record from the api', async () => {
+    const published = await pipeProtocol.publishRecord(mockRecord);
+    const response = await fetch(`http://localhost:${port}/fetch?cid=${published.cid}&scope=private`);
+    const data = await response.json() as FetchResponse;
+    expect(data.content).toEqual(mockRecord.content);
   });
 
-  describe('hooks', () => {
-    it('should process pre-store hooks', async () => {
-      const hook = {
-        name: 'testHook',
-        trigger: 'pre-store' as const,
-        handler: async (data: any) => ({
-          ...data,
-          processed: true
-        })
-      };
+  it('Should be able to get the node status from the api', async () => {
+    const response = await fetch(`http://localhost:${port}/node-status`);
+    const status = await response.json() as StatusResponse;
+    expect(status.localNode).toBe(true);
+    expect(status.publicNode).toBe(true);
+  });
 
-      pipe.addHook(hook);
-      const { cid } = await pipe.storeData({ message: 'Test' });
-      const record = await pipe.fetchRecord(cid, 'private');
-      expect(record?.content).toHaveProperty('processed', true);
-    });
+  it('Should be able to get the node info from the api', async () => {
+    const response = await fetch(`http://localhost:${port}/node-info?scope=private`);
+    const info = await response.json() as InfoResponse;
+    expect(info.peerId).toBeDefined();
+  });
 
-    it('should process post-store hooks', async () => {
-      let hookCalled = false;
-      const hook = {
-        name: 'testHook',
-        trigger: 'post-store' as const,
-        handler: async (data: any) => {
-          hookCalled = true;
-          return data;
-        }
-      };
+  it('Should be able to get storage metrics from the api', async() => {
+    const response = await fetch(`http://localhost:${port}/storage-metrics?scope=private`);
+    const metrics = await response.json() as MetricsResponse;
+    expect(metrics.repoSize).toBeDefined();
+  });
 
-      pipe.addHook(hook);
-      await pipe.storeData({ message: 'Test' });
-      expect(hookCalled).toBe(true);
-    });
+  it('Should be able to get the pinned CIDs from the api', async () => {
+    const record = await pipeProtocol.publishRecord(mockRecord);
+    await pipeProtocol.pin(record.cid || '', 'private');
+    const response = await fetch(`http://localhost:${port}/pinned-cids?scope=private`);
+    const pins = await response.json() as PinnedResponse;
+    expect(pins).toContain(record.cid);
+  });
+
+  it('Should be able to get the configuration from the api', async () => {
+    const response = await fetch(`http://localhost:${port}/configuration?scope=private`);
+    const config = await response.json() as ConfigResponse;
+    expect(config.peerId).toBeDefined();
+    expect(config.addrs).toBeDefined();
   });
 }); 

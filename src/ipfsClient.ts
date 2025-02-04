@@ -1,193 +1,142 @@
-import { create, IPFSHTTPClient } from 'ipfs-http-client';
+import { create } from 'ipfs-http-client';
 import { PipeRecord, Scope, PipeIpfsOptions } from './types';
+import { PipeRecordSchema } from './schema';
 import { config } from 'dotenv';
 config();
 
 export class IpfsClient {
-  private localNode?: IPFSHTTPClient;
-  private publicNode?: IPFSHTTPClient;
-  private isRunning: boolean = false;
+  private localNode: any;
+  private options: PipeIpfsOptions;
 
-  constructor(config: PipeIpfsOptions = {}) {
-    const { endpoint, options } = config;
-    
-    if (endpoint) {
-      this.localNode = create({ url: endpoint, ...options });
-      this.publicNode = create({ url: endpoint, ...options });
-    }
+  constructor(options: PipeIpfsOptions) {
+    this.options = options;
   }
 
-  public async init(localNodeEndpoint?: string, publicNodeEndpoint?: string): Promise<void> {
-    if (localNodeEndpoint) {
-      this.localNode = create({ url: localNodeEndpoint });
-    }
-    if (publicNodeEndpoint) {
-      this.publicNode = create({ url: publicNodeEndpoint });
-    }
-    this.isRunning = true;
-
-    // Test connections
+  async init(endpoint?: string) {
     try {
-      if (!this.localNode || !this.publicNode) {
-        throw new Error('IPFS nodes not initialized');
-      }
-      await Promise.all([
-        this.localNode.id(),
-        this.publicNode.id()
-      ]);
+      this.localNode = create({ url: endpoint || this.options.endpoint });
+      await this.localNode.version();
     } catch (error) {
-      console.error('Failed to initialize IPFS nodes:', error);
+      console.error('Error initializing IPFS node:', error);
       throw error;
-    }
-  }
-
-  private getNodeForScope(scope: Scope): IPFSHTTPClient {
-    if (!this.isRunning) {
-      throw new Error('IPFS client is not running');
-    }
-
-    switch (scope) {
-      case 'private':
-      case 'machine':
-        if (!this.localNode) throw new Error('Local node not initialized');
-        return this.localNode;
-      case 'public':
-      case 'user':
-        if (!this.publicNode) throw new Error('Public node not initialized');
-        return this.publicNode;
-      default:
-        throw new Error(`Invalid scope: ${scope}`);
     }
   }
 
   async publish(record: PipeRecord): Promise<PipeRecord> {
-    if (!this.isRunning) {
-      throw new Error('IPFS client is not running');
-    }
-
-    const node = this.getNodeForScope(record.scope);
-    
     try {
-      // Store the entire record
-      const result = await node.add(JSON.stringify(record));
+      const validatedRecord = PipeRecordSchema.parse(record);
+      const { cid } = await this.localNode.add(JSON.stringify(validatedRecord));
       
+      if (validatedRecord.pinned) {
+        await this.pin(cid.toString(), validatedRecord.scope);
+      }
+
       return {
-        ...record,
-        cid: result.path
+        ...validatedRecord,
+        cid: cid.toString()
       };
     } catch (error) {
-      console.error('Error publishing to IPFS:', error);
+      console.error('Error publishing record:', error);
       throw error;
     }
   }
 
-  async fetch(cid: string, scope: Scope): Promise<PipeRecord | null> {
-    if (!this.isRunning) {
-      throw new Error('IPFS client is not running');
-    }
-
-    const node = this.getNodeForScope(scope);
-    
+  async fetch(cid: string, scope: Scope): Promise<any> {
     try {
       const chunks = [];
-      for await (const chunk of node.cat(cid)) {
+      for await (const chunk of this.localNode.cat(cid)) {
         chunks.push(chunk);
       }
-      
-      const rawContent = Buffer.concat(chunks).toString();
-      let record: PipeRecord;
-      
-      try {
-        record = JSON.parse(rawContent);
-      } catch {
-        // If we can't parse the content as a record, assume it's just the content
-        record = {
-          cid,
-          content: rawContent,
-          type: 'data',
-          scope,
-          accessPolicy: { hiddenFromLLM: false },
-          encryption: { enabled: false }
-        };
-      }
-      
-      return record;
+      const content = Buffer.concat(chunks).toString();
+      return JSON.parse(content);
     } catch (error) {
-      console.error('Error fetching from IPFS:', error);
-      return null;
+      console.error('Error fetching record:', error);
+      throw error;
     }
   }
 
   async pin(cid: string, scope: Scope): Promise<void> {
-    const node = this.getNodeForScope(scope);
-    await node.pin.add(cid);
+    try {
+      await this.localNode.pin.add(cid);
+    } catch (error) {
+      console.error('Error pinning record:', error);
+      throw error;
+    }
   }
 
   async unpin(cid: string, scope: Scope): Promise<void> {
-    const node = this.getNodeForScope(scope);
-    await node.pin.rm(cid);
+    try {
+      await this.localNode.pin.rm(cid);
+    } catch (error) {
+      console.error('Error unpinning record:', error);
+      throw error;
+    }
   }
 
   async replicate(cid: string, fromScope: Scope, toScope: Scope): Promise<void> {
-    const content = await this.fetch(cid, fromScope);
-    if (!content) {
-      throw new Error(`Content not found for CID: ${cid}`);
+    try {
+      const content = await this.fetch(cid, fromScope);
+      await this.publish({
+        ...content,
+        scope: toScope,
+        pinned: true,
+        accessPolicy: { hiddenFromLLM: false }
+      });
+    } catch (error) {
+      console.error('Error replicating record:', error);
+      throw error;
     }
-    await this.publish({
-      ...content,
-      scope: toScope
-    });
   }
 
   async stop(): Promise<void> {
-    if (this.isRunning) {
-      try {
-        if (this.localNode) await this.localNode.stop();
-        if (this.publicNode) await this.publicNode.stop();
-        this.isRunning = false;
-      } catch (error) {
-        console.error('Error stopping IPFS client:', error);
-        throw error;
-      }
-    }
+    // No cleanup needed for HTTP client
   }
 
-  getStatus(): boolean {
-    return this.isRunning;
-  }
-
-  async getNodeInfo(scope: Scope): Promise<any> {
-    const node = this.getNodeForScope(scope);
-    return node.id();
-  }
-
-  async getStorageMetrics(scope: Scope): Promise<any> {
-    const node = this.getNodeForScope(scope);
-    const stats = await node.stats.repo();
+  getStatus() {
     return {
-      repoSize: stats.repoSize,
-      storageMax: stats.storageMax,
-      numObjects: stats.numObjects
+      localNode: true,
+      publicNode: false
     };
+  }
+
+  getNodeInfo(scope: Scope) {
+    return {
+      peerId: 'local'
+    };
+  }
+
+  async getStorageMetrics(scope: Scope) {
+    try {
+      const stats = await this.localNode.stats.repo();
+      return {
+        repoSize: stats.repoSize,
+        blockCount: stats.numObjects,
+        pinnedCount: 0
+      };
+    } catch (error) {
+      console.error('Error getting storage metrics:', error);
+      throw error;
+    }
   }
 
   async getPinnedCids(scope: Scope): Promise<string[]> {
-    const node = this.getNodeForScope(scope);
-    const pins = node.pin.ls();
-    const cids: string[] = [];
-    
-    for await (const pin of pins) {
-      cids.push(pin.cid.toString());
+    try {
+      const pins = [];
+      for await (const pin of this.localNode.pin.ls()) {
+        pins.push(pin.cid.toString());
+      }
+      return pins;
+    } catch (error) {
+      console.error('Error getting pinned CIDs:', error);
+      throw error;
     }
-    
-    return cids;
   }
 
-  getConfiguration(scope: Scope): any {
-    const node = this.getNodeForScope(scope);
+  getConfiguration(scope: Scope) {
     return {
-      endpoint: node.getEndpointConfig(),
-      scope
+      peerId: 'local',
+      addrs: []
     };
   }
 } 
+

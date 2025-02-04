@@ -1,76 +1,75 @@
-export interface EncryptionInfo {
-  enabled: boolean;
-  method?: string;
-  keyRef?: string;
-  nonce?: string;
-  ciphertext?: boolean;
-  contentType?: 'string' | 'json';
-}
-
 export interface AccessPolicy {
-  hiddenFromLLM: boolean;
+  hiddenFromLLM?: boolean;
   allowedTools?: string[];
   allowedUsers?: string[];
 }
 
-export type Scope = 'private' | 'public' | 'machine' | 'user';
+export type Scope = "private" | "public" | "machine" | "user";
 
 export interface PipeRecord {
+  type: "data" | "schema";
   cid?: string;
-  content: any;
-  type: 'data' | 'schema';
+  content?: any;
   scope: Scope;
-  accessPolicy: AccessPolicy;
-  encryption: EncryptionInfo;
+  pinned?: boolean;
+  accessPolicy?: AccessPolicy;
+  metadata?: Record<string, any>;
+  timestamp?: string;
 }
 
 export interface PipeBundle {
   schemaRecord: PipeRecord;
   dataRecord: PipeRecord;
+  combinedScope: Scope;
   timestamp?: string;
 }
 
-export interface PipeOptions {
-  localNodeEndpoint?: string;
-  publicNodeEndpoint?: string;
-  hooks?: PipeHook[];
-}
-
-export interface PipeIpfsOptions {
-  endpoint?: string;
-  options?: Record<string, any>;
-  localNodeEndpoint?: string;
-  publicNodeEndpoint?: string;
+export interface PipeConfig {
+    ipfsEndpoint?: string;
+    defaultScope?: Scope;
+    autoPin?: boolean;
+    hooks?: PipeHook[];
 }
 
 export interface PipeHook {
-  name: string;
-  trigger: 'pre-store' | 'post-store';
-  handler: (data: any, metadata: Record<string, any>) => Promise<any>;
+    name: string;
+    handler: (data: any, metadata: Record<string, any>) => Promise<any>;
+    trigger: 'pre-store' | 'post-store';
 }
 
 export interface StoreOptions {
-  scope?: Scope;
-  generateSchema?: boolean;
-  pin?: boolean;
+    scope?: Scope;
+    pin?: boolean;
+    generateSchema?: boolean;
 }
 
 export interface Tool {
-  name: string;
-  description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, any>;
-    required?: string[];
-  };
-  returns?: {
-    type: string;
-    description?: string;
-  };
-  call: (args: any) => Promise<any>;
+    name: string;
+    description: string;
+     parameters: {
+         type: 'object';
+         properties: Record<string, any>;
+         required?: string[];
+     };
+     returns?: {
+         type: string;
+        description?: string;
+    };
+    call: (...args: any[]) => any;
+}
+
+export interface PipeTool {
+    name: string;
+    description: string;
+    call: (method: string, args: any) => Promise<PipeRecord | PipeBundle | null | void>;
+}
+
+export interface PipeIpfsOptions {
+    endpoint?: string;
+    options?: Record<string, any>
 }
 
 export interface IpfsNodeConfig {
-  endpoint?: string;
-  options?: Record<string, any>;
+    endpoint?: string
+    options?: Record<string, any>
 } 
