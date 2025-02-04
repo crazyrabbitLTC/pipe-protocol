@@ -1,0 +1,24 @@
+{
+  "name": "pipe-openai-function-calling-example",
+  "version": "1.0.0",
+  "description": "Example demonstrating Pipe Protocol with OpenAI function calling",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "build": "tsc",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.1",
+    "openai": "^4.26.0",
+    "pipe-protocol": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
+    "eslint": "^8.56.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+} 
