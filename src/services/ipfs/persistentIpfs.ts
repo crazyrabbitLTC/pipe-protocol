@@ -17,6 +17,7 @@
  * - Maintains data between sessions
  * - Properly manages node lifecycle
  * - Controls network exposure (enabled/disabled)
+ * - Supports explicit data export for private nodes
  */
 
 import { createHelia } from 'helia'
@@ -33,8 +34,8 @@ import { yamux } from '@chainsafe/libp2p-yamux'
 import { identify } from '@libp2p/identify'
 import { mdns } from '@libp2p/mdns'
 import { bootstrap } from '@libp2p/bootstrap'
-import { type Libp2p } from '@libp2p/interface'
-import { type PeerId } from '@libp2p/interface/peer-id'
+import type { Libp2p, ServiceMap } from '@libp2p/interface'
+import type { PeerId } from '@libp2p/interface-peer-id'
 import { multiaddr } from '@multiformats/multiaddr'
 
 // Increase the default max listeners
@@ -65,14 +66,19 @@ export class PersistentIpfsNode {
     this.bootstrapList = options.bootstrapList ?? []
   }
 
-  private async createLibp2p(): Promise<Libp2p> {
+  private async createLibp2p(): Promise<Libp2p<ServiceMap>> {
     if (!this.enableNetworking) {
-      // Return a libp2p instance with networking disabled
+      // Return a completely offline libp2p instance
       return await createLibp2p({
         start: false,
         addresses: {
           listen: []
-        }
+        },
+        transports: [], // No transports
+        connectionEncrypters: [], // No encryption needed
+        streamMuxers: [], // No stream multiplexing
+        services: {}, // No services
+        peerDiscovery: [] // No peer discovery
       })
     }
 
@@ -117,7 +123,7 @@ export class PersistentIpfsNode {
 
       // Initialize Helia with the persistent blockstore and libp2p
       this.helia = await createHelia({
-        blockstore: this.blockstore,
+        blockstore: this.blockstore as any,
         libp2p
       })
 
@@ -185,6 +191,14 @@ export class PersistentIpfsNode {
         }
       }
 
+      // In offline mode, only return data if it's in our blockstore
+      if (!this.enableNetworking) {
+        const exists = await this.blockstore?.has(cid)
+        if (!exists) {
+          throw new Error('CID not found')
+        }
+      }
+
       let content = new Uint8Array()
       // Type assertion to handle CID version compatibility
       for await (const chunk of this.fs.cat(cid as any)) {
@@ -227,5 +241,29 @@ export class PersistentIpfsNode {
 
   async stop(): Promise<void> {
     await this.cleanup()
+  }
+
+  /**
+   * Exports the raw data for a given CID. This allows private nodes to
+   * explicitly share specific content without network connectivity.
+   * 
+   * @param cidStr - The CID of the content to export
+   * @returns The raw bytes of the content
+   * @throws Error if the CID doesn't exist or node isn't initialized
+   */
+  async exportData(cidStr: string): Promise<{ data: Uint8Array; cid: string }> {
+    const data = await this.get(cidStr)
+    return { data, cid: cidStr }
+  }
+
+  /**
+   * Imports previously exported data. The imported content will have the
+   * same CID as the original since IPFS CIDs are content-addressed.
+   * 
+   * @param data - The raw bytes to import
+   * @returns The CID of the imported content
+   */
+  async importData(data: Uint8Array): Promise<string> {
+    return await this.add(data)
   }
 } 

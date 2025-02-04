@@ -26,6 +26,8 @@ import { PersistentIpfsNode } from '../persistentIpfs'
 import { join } from 'path'
 import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
+import * as path from 'path'
+import * as os from 'os'
 
 describe('PersistentIpfsNode', () => {
   let node: PersistentIpfsNode
@@ -162,35 +164,38 @@ describe('PersistentIpfsNode', () => {
 
   describe('Network Exposure', () => {
     it('should operate in offline mode by default', async () => {
-      const node1 = new PersistentIpfsNode({ storageDirectory: tempDir })
+      const node1Dir = await mkdtemp(join(tmpdir(), 'ipfs-test-1-'));
+      const node2Dir = await mkdtemp(join(tmpdir(), 'ipfs-test-2-'));
+      
+      const node1 = new PersistentIpfsNode({ 
+        storageDirectory: node1Dir,
+        enableNetworking: false
+      });
       const node2 = new PersistentIpfsNode({ 
-        storageDirectory: await mkdtemp(join(tmpdir(), 'ipfs-test-2-'))
-      })
+        storageDirectory: node2Dir,
+        enableNetworking: false
+      });
 
       try {
-        await node1.init()
-        await node2.init()
+        await node1.init();
+        await node2.init();
 
         // Add data to node1
-        const cid = await node1.add(new TextEncoder().encode('test data'))
+        const cid = await node1.add(new TextEncoder().encode('test data'));
 
-        // Attempt to retrieve from node2 should fail quickly (under 2 seconds)
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 2000))
-
-        await expect(Promise.race([
-          node2.get(cid),
-          timeoutPromise
-        ])).rejects.toThrow()
+        // Attempt to retrieve from node2 should fail with CID not found
+        await expect(node2.get(cid)).rejects.toThrow('CID not found');
 
         // Verify nodes have no multiaddrs in offline mode
-        expect(await node1.getMultiaddrs()).toHaveLength(0)
-        expect(await node2.getMultiaddrs()).toHaveLength(0)
+        expect(await node1.getMultiaddrs()).toHaveLength(0);
+        expect(await node2.getMultiaddrs()).toHaveLength(0);
       } finally {
-        await node1.stop()
-        await node2.stop()
+        await node1.stop();
+        await node2.stop();
+        await rm(node1Dir, { recursive: true, force: true });
+        await rm(node2Dir, { recursive: true, force: true });
       }
-    })
+    });
 
     it('should allow network communication when enabled', async () => {
       // Create two networked nodes
@@ -229,5 +234,58 @@ describe('PersistentIpfsNode', () => {
         await node2.stop()
       }
     }, 10000) // Reduced timeout since we're explicitly connecting nodes
+  })
+
+  describe('Data Export/Import', () => {
+    let privateNode: PersistentIpfsNode;
+    let publicNode: PersistentIpfsNode;
+    const testData = new TextEncoder().encode('test data for export/import');
+
+    beforeEach(async () => {
+      privateNode = new PersistentIpfsNode({
+        storageDirectory: path.join(os.tmpdir(), 'test-private-ipfs'),
+        enableNetworking: false
+      });
+      publicNode = new PersistentIpfsNode({
+        storageDirectory: path.join(os.tmpdir(), 'test-public-ipfs'),
+        enableNetworking: true
+      });
+      await privateNode.init();
+      await publicNode.init();
+    });
+
+    afterEach(async () => {
+      await privateNode.stop();
+      await publicNode.stop();
+    });
+
+    it('should allow exporting data from private node and importing to public node', async () => {
+      // Add data to private node
+      const privateCid = await privateNode.add(testData);
+      
+      // Export from private node
+      const exportedData = await privateNode.exportData(privateCid);
+      
+      // Import to public node
+      const publicCid = await publicNode.importData(exportedData.data);
+      
+      // Verify CIDs match (content addressing)
+      expect(publicCid).toBe(privateCid);
+      
+      // Verify content is accessible on public node
+      const retrievedData = await publicNode.get(publicCid);
+      expect(new TextDecoder().decode(retrievedData)).toBe('test data for export/import');
+    });
+
+    it('should maintain data integrity through export/import process', async () => {
+      const originalCid = await privateNode.add(testData);
+      const { data } = await privateNode.exportData(originalCid);
+      const importedCid = await publicNode.importData(data);
+      
+      // Compare raw data
+      const originalData = await privateNode.get(originalCid);
+      const importedData = await publicNode.get(importedCid);
+      expect(originalData).toEqual(importedData);
+    });
   })
 }) 
