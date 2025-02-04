@@ -25,10 +25,14 @@ export interface PipeBundle {
 }
 
 export interface PipeConfig {
-    ipfsEndpoint?: string;
-    defaultScope?: Scope;
-    autoPin?: boolean;
-    hooks?: PipeHook[];
+  hooks?: PipeHook[];
+  storage?: 'memory' | 'persistent';
+  storageConfig?: {
+    directory?: string;
+  };
+  enableNetworking?: boolean;
+  listenAddresses?: string[];
+  bootstrapList?: string[];
 }
 
 export interface PipeHook {

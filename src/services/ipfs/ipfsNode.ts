@@ -122,6 +122,137 @@ export class IpfsNode {
     }
   }
 
+  // Core node lifecycle methods
+  async init(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
+    try {
+      this.blockstore = await this.createBlockstore();
+      const libp2p = await this.createLibp2p();
+
+      this.helia = await createHelia({
+        blockstore: this.blockstore as any,
+        libp2p: libp2p as any
+      });
+
+      this.fs = unixfs(this.helia);
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize IPFS node:', error);
+      await this.cleanup();
+      throw error;
+    }
+  }
+
+  async stop(): Promise<void> {
+    await this.cleanup();
+  }
+
+  // Core data operations
+  async add(data: Uint8Array): Promise<string> {
+    if (!this.isInitialized || !this.fs) {
+      throw new Error('IPFS node not initialized');
+    }
+
+    try {
+      const cid = await this.fs.addBytes(data);
+      const cidStr = cid.toString();
+      this.cidMap.set(cidStr, cid);
+      return cidStr;
+    } catch (error) {
+      console.error('Failed to add data:', error);
+      throw error;
+    }
+  }
+
+  async get(cidStr: string): Promise<Uint8Array> {
+    if (!this.isInitialized || !this.fs) {
+      throw new Error('IPFS node not initialized');
+    }
+
+    try {
+      let cid = this.cidMap.get(cidStr);
+      
+      if (!cid) {
+        try {
+          cid = CID.parse(cidStr);
+        } catch (error) {
+          throw new Error('Invalid CID');
+        }
+      }
+
+      if (!this.enableNetworking) {
+        const exists = await this.blockstore?.has(cid as any);
+        if (!exists) {
+          throw new Error('CID not found');
+        }
+      }
+
+      let content = new Uint8Array();
+      for await (const chunk of this.fs.cat(cid as any)) {
+        const newContent = new Uint8Array(content.length + chunk.length);
+        newContent.set(content);
+        newContent.set(chunk, content.length);
+        content = newContent;
+      }
+
+      this.cidMap.set(cidStr, cid);
+      return content;
+    } catch (error: unknown) {
+      if (error instanceof Error && 
+          (error.message.includes('not found') || error.message.includes('does not exist'))) {
+        throw new Error('CID not found');
+      }
+      console.error('Failed to get data:', error);
+      throw error;
+    }
+  }
+
+  // Network operations
+  async getMultiaddrs(): Promise<string[]> {
+    if (!this.helia?.libp2p) {
+      return [];
+    }
+    return this.helia.libp2p.getMultiaddrs().map(ma => ma.toString());
+  }
+
+  async getPeerId(): Promise<PeerId | null> {
+    return this.helia?.libp2p?.peerId ?? null;
+  }
+
+  async dial(addr: string): Promise<void> {
+    if (!this.enableNetworking || !this.helia?.libp2p) {
+      throw new Error('Networking is disabled');
+    }
+    await this.helia.libp2p.dial(multiaddr(addr));
+  }
+
+  // Internal helper methods
+  private async cleanup(): Promise<void> {
+    try {
+      if (this.helia) {
+        await this.helia.stop();
+        this.helia = null;
+      }
+      
+      if (this.blockstore) {
+        if ('close' in this.blockstore) {
+          await this.blockstore.close();
+        }
+        this.blockstore = null;
+      }
+
+      this.fs = null;
+      this.cidMap.clear();
+      this.isInitialized = false;
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      throw error;
+    }
+  }
+
   private async createBlockstore(): Promise<Blockstore> {
     if (this.storageType === 'persistent' && this.storageDirectory) {
       const store = new FsBlockstore(join(this.storageDirectory, 'blocks'));
@@ -169,156 +300,5 @@ export class IpfsNode {
       streamMuxers: [yamux()],
       services
     });
-  }
-
-  async init(): Promise<void> {
-    if (this.isInitialized) {
-      return;
-    }
-
-    try {
-      this.blockstore = await this.createBlockstore();
-      const libp2p = await this.createLibp2p();
-
-      // Type assertions needed due to version mismatches in dependencies
-      this.helia = await createHelia({
-        blockstore: this.blockstore as any,
-        libp2p: libp2p as any
-      });
-
-      this.fs = unixfs(this.helia);
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Failed to initialize IPFS node:', error);
-      await this.cleanup();
-      throw error;
-    }
-  }
-
-  private async cleanup(): Promise<void> {
-    try {
-      if (this.helia) {
-        await this.helia.stop();
-        this.helia = null;
-      }
-      
-      if (this.blockstore) {
-        // FsBlockstore has close method, MemoryBlockstore doesn't
-        if ('close' in this.blockstore) {
-          await this.blockstore.close();
-        }
-        this.blockstore = null;
-      }
-
-      this.fs = null;
-      this.cidMap.clear();
-      this.isInitialized = false;
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-      throw error;
-    }
-  }
-
-  async add(data: Uint8Array): Promise<string> {
-    if (!this.isInitialized || !this.fs) {
-      throw new Error('IPFS node not initialized');
-    }
-
-    try {
-      const cid = await this.fs.addBytes(data);
-      const cidStr = cid.toString();
-      this.cidMap.set(cidStr, cid);
-      return cidStr;
-    } catch (error) {
-      console.error('Failed to add data:', error);
-      throw error;
-    }
-  }
-
-  async get(cidStr: string): Promise<Uint8Array> {
-    if (!this.isInitialized || !this.fs) {
-      throw new Error('IPFS node not initialized');
-    }
-
-    try {
-      // Try to get from cache first
-      let cid = this.cidMap.get(cidStr);
-      
-      // If not in cache, try to parse it
-      if (!cid) {
-        try {
-          cid = CID.parse(cidStr);
-        } catch (error) {
-          throw new Error('Invalid CID');
-        }
-      }
-
-      // In offline mode, only return data if it's in our blockstore
-      if (!this.enableNetworking) {
-        const exists = await this.blockstore?.has(cid);
-        if (!exists) {
-          throw new Error('CID not found');
-        }
-      }
-
-      let content = new Uint8Array();
-      // Type assertion to handle CID version compatibility
-      for await (const chunk of this.fs.cat(cid as any)) {
-        const newContent = new Uint8Array(content.length + chunk.length);
-        newContent.set(content);
-        newContent.set(chunk, content.length);
-        content = newContent;
-      }
-
-      // Cache the successful CID for future use
-      this.cidMap.set(cidStr, cid);
-      return content;
-    } catch (error: unknown) {
-      if (error instanceof Error && 
-          (error.message.includes('not found') || error.message.includes('does not exist'))) {
-        throw new Error('CID not found');
-      }
-      console.error('Failed to get data:', error);
-      throw error;
-    }
-  }
-
-  async getMultiaddrs(): Promise<string[]> {
-    if (!this.helia?.libp2p) {
-      return [];
-    }
-    return this.helia.libp2p.getMultiaddrs().map(ma => ma.toString());
-  }
-
-  async getPeerId(): Promise<PeerId | null> {
-    return this.helia?.libp2p?.peerId ?? null;
-  }
-
-  async dial(addr: string): Promise<void> {
-    if (!this.enableNetworking || !this.helia?.libp2p) {
-      throw new Error('Networking is disabled');
-    }
-    await this.helia.libp2p.dial(multiaddr(addr));
-  }
-
-  async stop(): Promise<void> {
-    await this.cleanup();
-  }
-
-  /**
-   * Exports the raw data for a given CID. This allows private nodes to
-   * explicitly share specific content without network connectivity.
-   */
-  async exportData(cidStr: string): Promise<{ data: Uint8Array; cid: string }> {
-    const data = await this.get(cidStr);
-    return { data, cid: cidStr };
-  }
-
-  /**
-   * Imports previously exported data. The imported content will have the
-   * same CID as the original since IPFS CIDs are content-addressed.
-   */
-  async importData(data: Uint8Array): Promise<string> {
-    return await this.add(data);
   }
 } 

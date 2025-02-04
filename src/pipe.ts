@@ -1,9 +1,9 @@
-import { IpfsClient } from './ipfsClient';
+import { IpfsNode } from './services/ipfs/ipfsNode';
 import { PipeRecord, PipeBundle, Scope, PipeHook, StoreOptions, PipeConfig } from './types';
 import { generateSummary } from './utils';
 
 export class PipeProtocol {
-  private ipfs: IpfsClient;
+  private node: IpfsNode;
   private hooks: PipeHook[] = [];
   private schemaRegistry: Map<string, any> = new Map();
   private currentTool: string | undefined;
@@ -11,14 +11,17 @@ export class PipeProtocol {
 
   constructor(options: PipeConfig = {}) {
     try {
-      const ipfsConfig = {
-        endpoint: options.ipfsEndpoint,
-        options: {}
-      };
-      
-      this.ipfs = new IpfsClient(ipfsConfig);
+      // Create an IpfsNode with the appropriate configuration
+      this.node = new IpfsNode({
+        storage: options.storage || 'memory',
+        storageConfig: options.storageConfig,
+        enableNetworking: options.enableNetworking,
+        listenAddresses: options.listenAddresses,
+        bootstrapList: options.bootstrapList
+      });
+
       this.hooks = options.hooks || [];
-      this.initialized = this.init(options.ipfsEndpoint).catch(error => {
+      this.initialized = this.init().catch(error => {
         console.error('Error during IPFS initialization:', error);
         if (error instanceof Error) {
           console.error('Error stack:', error.stack);
@@ -34,8 +37,8 @@ export class PipeProtocol {
     }
   }
 
-  private async init(endpoint?: string) {
-    await this.ipfs.init(endpoint);
+  private async init() {
+    await this.node.init();
   }
 
   async processHooks(trigger: 'pre-store' | 'post-store', data: any, metadata: Record<string, any>) {
@@ -56,26 +59,22 @@ export class PipeProtocol {
     const generateSchema = options.generateSchema !== false;
     const schema = generateSchema ? this.generateSchema(data) : null;
     
+    // Convert data and schema to Uint8Array
+    const encoder = new TextEncoder();
+    const [dataContent, schemaContent] = [
+      encoder.encode(JSON.stringify(data)),
+      schema ? encoder.encode(JSON.stringify(schema)) : null
+    ];
+
+    // Store data and schema in IPFS
     const [dataCid, schemaCid] = await Promise.all([
-      this.ipfs.publish({
-        type: 'data',
-        content: data,
-        scope: options.scope || 'private',
-        pinned: options.pin !== false,
-        accessPolicy: { hiddenFromLLM: false }
-      }),
-      schema ? this.ipfs.publish({
-        type: 'schema',
-        content: schema,
-        scope: options.scope || 'private',
-        pinned: options.pin !== false,
-        accessPolicy: { hiddenFromLLM: false }
-      }) : null
+      this.node.add(dataContent),
+      schemaContent ? this.node.add(schemaContent) : null
     ]);
 
     return {
-      cid: dataCid.cid,
-      schemaCid: schemaCid?.cid || undefined,
+      cid: dataCid,
+      schemaCid: schemaCid || undefined,
       timestamp: new Date().toISOString()
     };
   }
@@ -93,13 +92,15 @@ export class PipeProtocol {
 
   public async publishRecord(record: PipeRecord): Promise<PipeRecord> {
     await this.initialized;
-    const validRecord = {
+    const encoder = new TextEncoder();
+    const content = encoder.encode(JSON.stringify(record.content));
+    const cid = await this.node.add(content);
+
+    return {
       ...record,
-      type: record.type,
-      scope: record.scope,
-      cid: record.cid || undefined
+      cid,
+      timestamp: new Date().toISOString()
     };
-    return this.ipfs.publish(validRecord);
   }
 
   public async publishBundle(bundle: PipeBundle): Promise<PipeBundle> {
@@ -133,52 +134,67 @@ export class PipeProtocol {
 
   public async fetchRecord(cid: string, scope: Scope): Promise<PipeRecord | null> {
     await this.initialized;
-    const content = await this.ipfs.fetch(cid, scope);
-    if (!content) return null;
+    try {
+      const data = await this.node.get(cid);
+      const decoder = new TextDecoder();
+      const content = JSON.parse(decoder.decode(data));
 
-    return {
-      cid,
-      content,
-      type: 'data',
-      scope,
-      accessPolicy: { hiddenFromLLM: false }
-    };
+      return {
+        cid,
+        content,
+        type: 'data',
+        scope,
+        accessPolicy: { hiddenFromLLM: false }
+      };
+    } catch (error) {
+      console.error('Error fetching record:', error);
+      return null;
+    }
   }
 
   public async pin(cid: string, scope: Scope): Promise<void> {
-    return this.ipfs.pin(cid, scope);
+    await this.node.pin(cid, scope);
   }
 
   public async unpin(cid: string, scope: Scope): Promise<void> {
-    return this.ipfs.unpin(cid, scope);
+    await this.node.unpin(cid, scope);
   }
 
   public async replicate(cid: string, fromScope: Scope, toScope: Scope): Promise<void> {
-    return this.ipfs.replicate(cid, fromScope, toScope);
+    await this.node.replicate(cid, fromScope, toScope);
   }
 
   public async stop() {
-    await this.ipfs.stop();
+    // Cleanup is handled by the node
+    await this.node.stop();
   }
 
   public getStatus() {
-    return this.ipfs.getStatus();
+    return {
+      localNode: true,
+      publicNode: false // Default to offline mode
+    };
   }
 
   public getNodeInfo(scope: Scope) {
-    return this.ipfs.getNodeInfo(scope);
+    return this.node.getPeerId().then(peerId => ({
+      peerId: peerId?.toString() || 'unknown'
+    }));
   }
 
   public async getStorageMetrics(scope: Scope): Promise<any> {
-    return this.ipfs.getStorageMetrics(scope);
+    return this.node.getStorageMetrics(scope);
   }
 
   public async getPinnedCids(scope: Scope): Promise<any> {
-    return this.ipfs.getPinnedCids(scope);
+    return this.node.getPinnedCids(scope);
   }
 
-  public getConfiguration(scope: Scope): any {
-    return this.ipfs.getConfiguration(scope);
+  public getConfiguration(scope: Scope) {
+    return this.node.getMultiaddrs().then(addrs => ({
+      peerId: this.node.getPeerId().then(id => id?.toString() || 'unknown'),
+      addrs
+    }));
   }
 
   wrap(tools: any[]): any[] {

@@ -17,6 +17,7 @@ export class IpfsClient {
   private node: IpfsNode;
   private encoder = new TextEncoder();
   private decoder = new TextDecoder();
+  private pinnedCids: Set<string> = new Set();
 
   constructor(node: IpfsNode) {
     this.node = node;
@@ -24,10 +25,10 @@ export class IpfsClient {
 
   async init(): Promise<void> {
     try {
-      // Ensure the node is initialized
       if (!this.node) {
         throw new Error('IPFS node not provided');
       }
+      await this.node.init();
     } catch (error) {
       console.error('Error initializing IPFS client:', error);
       throw error;
@@ -40,6 +41,10 @@ export class IpfsClient {
       const data = this.encoder.encode(JSON.stringify(validatedRecord));
       const cid = await this.node.add(data);
       
+      if (record.pinned) {
+        await this.pin(cid, record.scope);
+      }
+
       return {
         ...validatedRecord,
         cid
@@ -50,62 +55,106 @@ export class IpfsClient {
     }
   }
 
-  async fetch(cid: string, scope: Scope): Promise<PipeRecord> {
+  async fetch(cid: string, scope: Scope): Promise<PipeRecord | null> {
     try {
       const data = await this.node.get(cid);
-      const content = this.decoder.decode(data);
-      const record = JSON.parse(content);
+      const content = JSON.parse(this.decoder.decode(data));
       return {
-        ...record,
-        scope
+        cid,
+        content,
+        type: 'data',
+        scope,
+        accessPolicy: { hiddenFromLLM: false }
       };
     } catch (error) {
       console.error('Error fetching record:', error);
+      return null;
+    }
+  }
+
+  async pin(cid: string, _scope: Scope): Promise<void> {
+    try {
+      // Verify the data exists by trying to get it
+      await this.node.get(cid);
+      this.pinnedCids.add(cid);
+    } catch (error) {
+      console.error('Error pinning data:', error);
       throw error;
     }
   }
 
-  async replicate(cid: string, fromScope: Scope, toScope: Scope): Promise<void> {
+  async unpin(cid: string, _scope: Scope): Promise<void> {
     try {
-      const content = await this.fetch(cid, fromScope);
-      await this.publish({
-        ...content,
-        scope: toScope,
-        pinned: true,
-        accessPolicy: { hiddenFromLLM: false }
-      });
+      this.pinnedCids.delete(cid);
     } catch (error) {
-      console.error('Error replicating record:', error);
+      console.error('Error unpinning data:', error);
+      throw error;
+    }
+  }
+
+  async replicate(cid: string, _fromScope: Scope, _toScope: Scope): Promise<void> {
+    try {
+      // Get the data from the source scope
+      const data = await this.node.get(cid);
+      // Add it back to create a new copy
+      const newCid = await this.node.add(data);
+      
+      if (newCid !== cid) {
+        throw new Error('Data integrity check failed during replication');
+      }
+    } catch (error) {
+      console.error('Error replicating data:', error);
       throw error;
     }
   }
 
   async stop(): Promise<void> {
-    // Node cleanup is handled by the node itself
+    await this.node.stop();
   }
 
   getStatus() {
     return {
       localNode: true,
-      publicNode: this.node['enableNetworking'] || false
+      publicNode: false // Default to offline mode
     };
   }
 
-  async getNodeInfo(_scope: Scope) {
-    const peerId = await this.node.getPeerId();
-    return {
+  getNodeInfo(_scope: Scope) {
+    return this.node.getPeerId().then(peerId => ({
       peerId: peerId?.toString() || 'unknown'
-    };
+    }));
   }
 
   async getConfiguration(_scope: Scope) {
-    const peerId = await this.node.getPeerId();
-    const addrs = await this.node.getMultiaddrs();
+    const [peerId, addrs] = await Promise.all([
+      this.node.getPeerId(),
+      this.node.getMultiaddrs()
+    ]);
     
     return {
       peerId: peerId?.toString() || 'unknown',
       addrs
     };
+  }
+
+  async getStorageMetrics(_scope: Scope): Promise<{ totalSize: number; numObjects: number }> {
+    return {
+      totalSize: 0, // Implement actual size calculation if needed
+      numObjects: this.pinnedCids.size
+    };
+  }
+
+  async getPinnedCids(_scope: Scope): Promise<string[]> {
+    return Array.from(this.pinnedCids);
+  }
+
+  async exportData(cid: string): Promise<{ data: Uint8Array; cid: string }> {
+    const data = await this.node.get(cid);
+    return { data, cid };
+  }
+
+  async importData(data: Uint8Array): Promise<string> {
+    return await this.node.add(data);
   }
 } 
 
