@@ -6,7 +6,6 @@ yarn-error.log*
 
 # Build output
 dist/
-dist-scripts
 build/
 *.tsbuildinfo
 
