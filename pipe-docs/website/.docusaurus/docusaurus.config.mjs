@@ -4,13 +4,13 @@
  * Modify the docusaurus.config.js file at your site's root instead.
  */
 export default {
-  "title": "Pipe Protocol",
-  "tagline": "A protocol for secure, decentralized data management",
+  "title": "My Site",
+  "tagline": "Dinosaurs are cool",
   "favicon": "img/favicon.ico",
-  "url": "https://pipe-protocol.io",
+  "url": "https://your-docusaurus-site.example.com",
   "baseUrl": "/",
-  "organizationName": "pipe",
-  "projectName": "pipe",
+  "organizationName": "facebook",
+  "projectName": "docusaurus",
   "onBrokenLinks": "throw",
   "onBrokenMarkdownLinks": "warn",
   "i18n": {
@@ -27,13 +27,22 @@ export default {
       {
         "docs": {
           "sidebarPath": "./sidebars.ts",
-          "routeBasePath": "/",
-          "breadcrumbs": true,
-          "showLastUpdateTime": true,
-          "sidebarCollapsed": false,
-          "sidebarCollapsible": true
+          "editUrl": "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/"
         },
-        "blog": false,
+        "blog": {
+          "showReadingTime": true,
+          "feedOptions": {
+            "type": [
+              "rss",
+              "atom"
+            ],
+            "xslt": true
+          },
+          "editUrl": "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+          "onInlineTags": "warn",
+          "onInlineAuthors": "warn",
+          "onUntruncatedBlogPosts": "warn"
+        },
         "theme": {
           "customCss": "./src/css/custom.css"
         }
@@ -41,59 +50,42 @@ export default {
     ]
   ],
   "themeConfig": {
-    "colorMode": {
-      "defaultMode": "light",
-      "disableSwitch": false,
-      "respectPrefersColorScheme": true
-    },
-    "docs": {
-      "sidebar": {
-        "hideable": true,
-        "autoCollapseCategories": false
-      },
-      "versionPersistence": "localStorage"
-    },
+    "image": "img/docusaurus-social-card.jpg",
     "navbar": {
-      "hideOnScroll": true,
-      "style": "primary",
-      "title": "Pipe Protocol",
+      "title": "My Site",
       "logo": {
-        "alt": "Pipe Protocol Logo",
-        "src": "img/logo.svg",
-        "srcDark": "img/logo_dark.svg"
+        "alt": "My Site Logo",
+        "src": "img/logo.svg"
       },
       "items": [
         {
           "type": "docSidebar",
-          "sidebarId": "docs",
+          "sidebarId": "tutorialSidebar",
           "position": "left",
-          "label": "Documentation"
+          "label": "Tutorial"
         },
         {
-          "href": "https://github.com/pipe/pipe",
-          "position": "right",
-          "className": "header-github-link",
-          "aria-label": "GitHub repository"
+          "to": "/blog",
+          "label": "Blog",
+          "position": "left"
+        },
+        {
+          "href": "https://github.com/facebook/docusaurus",
+          "label": "GitHub",
+          "position": "right"
         }
-      ]
+      ],
+      "hideOnScroll": false
     },
     "footer": {
-      "style": "light",
+      "style": "dark",
       "links": [
         {
-          "title": "Documentation",
+          "title": "Docs",
           "items": [
             {
-              "label": "Introduction",
-              "to": "/intro"
-            },
-            {
-              "label": "Core Concepts",
-              "to": "/core-concepts/terminology"
-            },
-            {
-              "label": "Usage Examples",
-              "to": "/usage-examples/publish-data"
+              "label": "Tutorial",
+              "to": "/docs/intro"
             }
           ]
         },
@@ -101,13 +93,34 @@ export default {
           "title": "Community",
           "items": [
             {
+              "label": "Stack Overflow",
+              "href": "https://stackoverflow.com/questions/tagged/docusaurus"
+            },
+            {
+              "label": "Discord",
+              "href": "https://discordapp.com/invite/docusaurus"
+            },
+            {
+              "label": "X",
+              "href": "https://x.com/docusaurus"
+            }
+          ]
+        },
+        {
+          "title": "More",
+          "items": [
+            {
+              "label": "Blog",
+              "to": "/blog"
+            },
+            {
               "label": "GitHub",
-              "href": "https://github.com/pipe/pipe"
+              "href": "https://github.com/facebook/docusaurus"
             }
           ]
         }
       ],
-      "copyright": "Copyright © 2025 Pipe Protocol. Built with Docusaurus."
+      "copyright": "Copyright © 2025 My Project, Inc. Built with Docusaurus."
     },
     "prism": {
       "theme": {
@@ -301,12 +314,7 @@ export default {
           }
         ]
       },
-      "additionalLanguages": [
-        "bash",
-        "diff",
-        "json",
-        "yaml"
-      ],
+      "additionalLanguages": [],
       "magicComments": [
         {
           "className": "theme-code-block-highlighted-line",
@@ -318,16 +326,28 @@ export default {
         }
       ]
     },
-    "tableOfContents": {
-      "minHeadingLevel": 2,
-      "maxHeadingLevel": 4
+    "colorMode": {
+      "defaultMode": "light",
+      "disableSwitch": false,
+      "respectPrefersColorScheme": false
+    },
+    "docs": {
+      "versionPersistence": "localStorage",
+      "sidebar": {
+        "hideable": false,
+        "autoCollapseCategories": false
+      }
     },
     "blog": {
       "sidebar": {
         "groupByYear": true
       }
     },
-    "metadata": []
+    "metadata": [],
+    "tableOfContents": {
+      "minHeadingLevel": 2,
+      "maxHeadingLevel": 3
+    }
   },
   "baseUrlIssueBanner": true,
   "future": {
