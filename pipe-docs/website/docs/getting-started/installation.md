@@ -107,4 +107,5 @@ testSetup().catch(console.error);
 
 - [Basic Usage](../guides/basic-usage.md) - Learn how to use Pipe Protocol
 - [Configuration](../guides/configuration.md) - Learn about configuration options
-- [API Reference](../api-reference/pipe.md) - Explore the API documentation 
+- [API Reference](../api-reference/pipe.md) - Explore the API documentation
+- [OpenAI Function Calling Example](../examples/openai-function-calling.md) - See a complete example using OpenAI's function calling 

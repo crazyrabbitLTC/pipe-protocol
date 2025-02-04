@@ -2,141 +2,150 @@
 sidebar_position: 1
 ---
 
-# OpenAI Function Calling Example
+# OpenAI Function Calling
 
-This example demonstrates how to use Pipe Protocol with OpenAI's function calling feature and a custom tool that generates Fibonacci sequences.
+This example demonstrates how to use Pipe Protocol with OpenAI's function calling feature. We'll create a simple Fibonacci sequence generator and show how Pipe automatically handles IPFS storage, schema generation, and result retrieval.
 
-## Setup
+## Prerequisites
 
-First, install the required dependencies:
+- Node.js 16 or later
+- OpenAI API key
+- Pipe Protocol installed (`npm install pipe-protocol`)
 
-```bash
-npm install pipe-protocol openai
-```
+## Complete Example
 
-## Implementation
+Here's a complete example that shows:
+- Defining a tool (Fibonacci sequence generator)
+- Wrapping it with Pipe
+- Using it with OpenAI's function calling
+- Storing and retrieving results from IPFS
 
 ```typescript
-import { Pipe } from 'pipe-protocol';
 import OpenAI from 'openai';
+import type { ChatCompletionTool, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { Pipe } from 'pipe-protocol';
+import { Tool } from 'pipe-protocol/types';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI and Pipe
+const openai = new OpenAI();
+const pipe = new Pipe();
 
-// Create a Fibonacci sequence generator tool
-const fibonacciTool = {
-  name: 'generateFibonacci',
-  description: 'Generates a Fibonacci sequence up to a specified length',
+// Fibonacci function that generates a sequence up to n
+function generateFibonacci(n: number): number[] {
+  if (n < 2) {
+    throw new Error('Number must be at least 2');
+  }
+  const sequence: number[] = [0, 1];
+  while (sequence.length < n) {
+    sequence.push(sequence[sequence.length - 1] + sequence[sequence.length - 2]);
+  }
+  return sequence;
+}
+
+// Define our tool
+const fibonacciTool: Tool = {
+  name: 'generate_fibonacci',
+  description: 'Generate a Fibonacci sequence up to n numbers (minimum 2)',
   parameters: {
-    type: 'object',
+    type: 'object' as const,
     properties: {
-      length: {
+      n: {
         type: 'number',
-        description: 'Length of the Fibonacci sequence to generate'
+        description: 'Number of Fibonacci numbers to generate (must be 2 or greater)'
       }
     },
-    required: ['length']
+    required: ['n']
   },
-  call: async (args: { length: number }) => {
-    console.log(`Generating Fibonacci sequence of length ${args.length}...`);
-    
-    const sequence: number[] = [0, 1];
-    while (sequence.length < args.length) {
-      sequence.push(sequence[sequence.length - 1] + sequence[sequence.length - 2]);
-    }
-    
-    return {
-      sequence,
-      length: sequence.length,
-      lastNumber: sequence[sequence.length - 1]
-    };
+  call: async (args: { n: number }) => {
+    console.log(`Generating ${args.n} Fibonacci numbers...`);
+    return generateFibonacci(args.n);
   }
 };
 
-// Initialize Pipe with token limiting and schema generation
-const pipe = new Pipe({
-  defaults: {
-    maxTokens: 1000,
-    generateSchema: true,
-    storeResult: true,
-    scope: 'private'
-  }
-});
-
-// Wrap the Fibonacci tool
+// Wrap the tool with Pipe
 const wrappedTools = pipe.wrap([fibonacciTool]);
-const wrappedFibTool = wrappedTools[0];
 
 async function main() {
   try {
-    // Example user request
-    const userRequest = "Generate a Fibonacci sequence of 10 numbers and tell me about it.";
-    console.log(`User request: ${userRequest}`);
+    // Define the OpenAI tools schema
+    const tools: ChatCompletionTool[] = [
+      {
+        type: 'function',
+        function: {
+          name: 'generate_fibonacci',
+          description: 'Generate a Fibonacci sequence up to n numbers (minimum 2)',
+          parameters: {
+            type: 'object',
+            properties: {
+              n: {
+                type: 'number',
+                description: 'Number of Fibonacci numbers to generate (must be 2 or greater)'
+              }
+            },
+            required: ['n']
+          }
+        }
+      }
+    ];
 
-    // Call OpenAI with function calling
+    const initialMessage: ChatCompletionMessageParam = { 
+      role: 'user', 
+      content: 'Can you generate the first 10 numbers of the Fibonacci sequence?' 
+    };
+
+    // First OpenAI call to get function calling
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [{
-        role: "user",
-        content: userRequest
-      }],
-      functions: [fibonacciTool],
-      function_call: "auto"
+      model: 'gpt-4',
+      messages: [initialMessage],
+      tools
     });
 
-    // Extract function call details
-    const functionCall = completion.choices[0].message.function_call;
-    
-    if (functionCall && functionCall.name === 'generateFibonacci') {
-      console.log('Function called by OpenAI:', functionCall.name);
-      console.log('Arguments:', functionCall.arguments);
+    const toolCalls = completion.choices[0].message.tool_calls;
+    if (!toolCalls) {
+      console.log('No tool calls made');
+      return;
+    }
 
-      // Parse arguments and call the wrapped tool
-      const args = JSON.parse(functionCall.arguments || '{}');
-      const result = await wrappedFibTool.call(args);
+    // Execute the wrapped tool and get the enhanced result with IPFS storage
+    const toolCall = toolCalls[0];
+    const args = JSON.parse(toolCall.function.arguments);
+    const wrappedResult = await wrappedTools[0].call(args);
 
-      console.log('\nResult from wrapped tool:');
-      console.log('- Sequence:', result.sequence);
-      console.log('- Length:', result.length);
-      console.log('- Last number:', result.lastNumber);
-      console.log('- IPFS CID:', result.cid);
-      console.log('- Schema CID:', result.schemaCid);
-      console.log('- Metadata:', result.metadata);
-
-      // Retrieve the stored data and schema
-      console.log('\nRetrieving data from IPFS...');
-      const storedData = await pipe.retrieve(result.cid);
-      console.log('Retrieved data:', storedData);
-
-      if (result.schemaCid !== 'no-schema') {
-        const schema = await pipe.retrieve(result.schemaCid);
-        console.log('Retrieved schema:', schema);
+    // Create the messages array with proper typing
+    const messages: ChatCompletionMessageParam[] = [
+      initialMessage,
+      {
+        role: 'assistant',
+        content: 'I will help you generate the Fibonacci sequence.',
+        tool_calls: toolCalls
+      },
+      {
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(wrappedResult)
       }
+    ];
 
-      // Get AI's response about the sequence
-      const finalResponse = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "user",
-            content: userRequest
-          },
-          {
-            role: "assistant",
-            content: null,
-            function_call: functionCall
-          },
-          {
-            role: "function",
-            name: "generateFibonacci",
-            content: JSON.stringify(result)
-          }
-        ]
-      });
+    // Final OpenAI call to get the formatted response
+    const finalCompletion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages,
+      tools
+    });
 
-      console.log('\nAI Response:', finalResponse.choices[0].message.content);
+    console.log('\nFinal Response:', finalCompletion.choices[0].message.content);
+    console.log('\nPipe Enhanced Result:');
+    console.log('- IPFS CID:', wrappedResult.cid);
+    console.log('- Metadata:', wrappedResult.metadata);
+
+    // Fetch and display the content from IPFS
+    const storedContent = await pipe.retrieve(wrappedResult.cid);
+    console.log('Content stored in IPFS:', storedContent);
+
+    // Also fetch and display the schema if available
+    if (wrappedResult.schemaCid) {
+      const storedSchema = await pipe.retrieve(wrappedResult.schemaCid);
+      console.log('Schema stored in IPFS:', storedSchema);
     }
   } catch (error) {
     console.error('Error:', error);
@@ -152,58 +161,55 @@ main();
 When you run this example, you'll see output similar to this:
 
 ```
-User request: Generate a Fibonacci sequence of 10 numbers and tell me about it.
+Sending request to OpenAI...
+OpenAI decided to call our tool...
+Executing wrapped tool with args: { n: 10 }
+Generating 10 Fibonacci numbers...
 
-Function called by OpenAI: generateFibonacci
-Arguments: {"length": 10}
+Final Response: Here are the first 10 numbers of the Fibonacci sequence:
+0, 1, 1, 2, 3, 5, 8, 13, 21, 34
 
-Generating Fibonacci sequence of length 10...
-
-Result from wrapped tool:
-- Sequence: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
-- Length: 10
-- Last number: 34
-- IPFS CID: QmXJK7G8...
-- Schema CID: QmYZ9H1P...
+Pipe Enhanced Result:
+- IPFS CID: QmWzAsMSwxLDIsMyw1LDgsMTMsMjEsMzRd
 - Metadata: {
-    tool: 'generateFibonacci',
-    truncated: false,
-    pinned: true,
-    scope: 'private'
-  }
-
-Retrieving data from IPFS...
-Retrieved data: {
-  sequence: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34],
-  length: 10,
-  lastNumber: 34
-}
-Retrieved schema: {
-  type: 'object',
-  properties: {
-    sequence: {
-      type: 'array',
-      items: { type: 'number' }
-    },
-    length: { type: 'number' },
-    lastNumber: { type: 'number' }
-  }
+  tool: "generate_fibonacci",
+  truncated: false,
+  pinned: true,
+  scope: "private"
 }
 
-AI Response: I've generated a Fibonacci sequence of 10 numbers for you. The sequence is [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]. In this sequence, each number is the sum of the two preceding ones. The sequence starts with 0 and 1, and the largest number in this 10-number sequence is 34. The sequence has been stored in IPFS for future reference, and a schema has been automatically generated to describe the data structure.
+Content stored in IPFS: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+
+Schema stored in IPFS: {
+  type: "array",
+  items: {
+    type: "number"
+  }
+}
 ```
 
-## Key Points
+## Key Features Demonstrated
 
-1. **Tool Definition**: The Fibonacci tool is defined with a clear interface and parameters.
-2. **Pipe Configuration**: Pipe is configured with token limiting and schema generation.
-3. **OpenAI Integration**: The example shows how to use OpenAI's function calling with wrapped tools.
-4. **Data Storage**: Results are automatically stored in IPFS with generated schemas.
-5. **Error Handling**: The example includes basic error handling.
+1. **Tool Wrapping**: The example shows how to wrap a simple tool with Pipe, making it automatically store results in IPFS.
+
+2. **OpenAI Integration**: Demonstrates how to use Pipe with OpenAI's function calling feature, including:
+   - Proper tool schema definition
+   - Handling function calls
+   - Processing results
+
+3. **IPFS Storage**: Shows how Pipe automatically:
+   - Stores the tool's output in IPFS
+   - Generates and stores a schema
+   - Provides easy retrieval of both data and schema
+
+4. **Metadata Tracking**: Each result includes metadata about:
+   - Which tool generated it
+   - Whether the result was truncated
+   - Storage scope (private/public)
+   - Pinning status
 
 ## Next Steps
 
-- Try modifying the example to use different tools
-- Experiment with different OpenAI models and parameters
-- Add pre and post-storage hooks for additional processing
-- Explore different storage scopes and pinning options 
+- Learn about [configuring storage options](../guides/configuration.md)
+- Explore [more examples](./index.md)
+- Read about [schema generation](../concepts/schema-generation.md) 
