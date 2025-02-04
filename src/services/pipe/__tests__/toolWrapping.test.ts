@@ -1,10 +1,26 @@
 /**
  * @file Tool Wrapping Test Suite
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - COMPLETE TEST COVERAGE
  * @lastModified 2024-02-04
  * 
- * Tests for tool wrapping functionality
+ * Tests for tool wrapping functionality.
+ * 
+ * IMPORTANT:
+ * - Maintain complete test coverage
+ * - Test all wrapping features
+ * - Test configuration options
+ * - Test error cases
+ * 
+ * Test Coverage:
+ * - Basic Tool Wrapping
+ *   - Property preservation
+ *   - Functionality maintenance
+ *   - Multiple tool handling
+ * - IPFS Integration
+ *   - Storage configuration
+ *   - Scope settings
+ *   - Pinning options
  */
 
 import { describe, it, expect } from 'vitest';

@@ -1,10 +1,25 @@
 /**
  * @file Tool Wrapping Implementation
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - DO NOT MODIFY WITHOUT TESTS
  * @lastModified 2024-02-04
  * 
- * Tool wrapping functionality with IPFS integration
+ * Tool wrapping functionality with IPFS integration.
+ * 
+ * IMPORTANT:
+ * - All modifications must maintain test coverage
+ * - Preserve original tool functionality
+ * - Handle hook execution order
+ * - Respect configuration settings
+ * - Token counting must be accurate
+ * 
+ * Functionality:
+ * - Tool wrapping with IPFS capabilities
+ * - Token counting and limiting
+ * - Schema generation
+ * - Hook system integration
+ * - Metadata management
+ * - Result transformation
  */
 
 import { Tool } from '../../types/tool';

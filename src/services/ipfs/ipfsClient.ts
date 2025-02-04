@@ -1,10 +1,23 @@
 /**
  * @file IPFS Client Implementation
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - DO NOT MODIFY WITHOUT TESTS
  * @lastModified 2024-02-04
  * 
- * IPFS client for interacting with IPFS nodes
+ * IPFS client for interacting with IPFS nodes.
+ * 
+ * IMPORTANT:
+ * - All modifications must maintain test coverage
+ * - Handle network errors gracefully
+ * - Maintain data consistency
+ * - Respect scope and pinning settings
+ * 
+ * Functionality:
+ * - Store data in IPFS with configurable options
+ * - Retrieve data from IPFS
+ * - Pin management
+ * - Scope management (public/private)
+ * - Mock implementation for testing
  */
 
 export interface IPFSClientConfig {

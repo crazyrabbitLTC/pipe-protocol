@@ -1,16 +1,32 @@
 /**
  * @file Pipe Class Test Suite
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - COMPLETE TEST COVERAGE
  * @lastModified 2024-02-04
  * 
- * Tests for the Pipe class functionality
+ * Tests for the Pipe class functionality.
+ * 
+ * IMPORTANT:
+ * - Maintain complete test coverage
+ * - Test all configuration options
+ * - Test error cases
+ * - Test edge cases
  * 
  * Test Coverage:
  * - Configuration handling
+ *   - Default configuration
+ *   - Custom configuration
  * - Tool wrapping
+ *   - Basic wrapping
+ *   - Token limiting
+ *   - Schema generation
  * - Hook system
+ *   - Hook execution order
+ *   - Hook removal
  * - IPFS integration
+ *   - Storage and retrieval
+ *   - Scope settings
+ *   - Pinning options
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

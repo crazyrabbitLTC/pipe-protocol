@@ -1,16 +1,26 @@
 /**
  * @file Pipe Class Implementation
  * @version 1.0.0
- * @status IN_DEVELOPMENT
+ * @status STABLE - DO NOT MODIFY WITHOUT TESTS
  * @lastModified 2024-02-04
  * 
- * Core class for managing tool wrapping and IPFS integration
+ * Core class for managing tool wrapping and IPFS integration.
+ * 
+ * IMPORTANT:
+ * - All modifications must maintain test coverage
+ * - Configuration must be immutable after initialization
+ * - Hook system must maintain order of execution
+ * - IPFS operations must handle errors gracefully
  * 
  * Functionality:
  * - Tool wrapping with IPFS capabilities
  * - Hook system for extensibility
  * - Configuration management
  * - IPFS client integration
+ * - Token counting and limiting
+ * - Schema generation
+ * - Scope management (public/private)
+ * - Pin management
  */
 
 import { Tool } from './types/tool';
