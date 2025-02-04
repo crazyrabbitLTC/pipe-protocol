@@ -14,6 +14,7 @@
  * - Data persistence between sessions
  * - Proper cleanup
  * - Independent node operation
+ * - Network exposure control
  * 
  * IMPORTANT:
  * - All new features must have corresponding tests
@@ -157,5 +158,76 @@ describe('PersistentIpfsNode', () => {
       await node2.stop()
       await rm(tempDir2, { recursive: true, force: true })
     }
+  })
+
+  describe('Network Exposure', () => {
+    it('should operate in offline mode by default', async () => {
+      const node1 = new PersistentIpfsNode({ storageDirectory: tempDir })
+      const node2 = new PersistentIpfsNode({ 
+        storageDirectory: await mkdtemp(join(tmpdir(), 'ipfs-test-2-'))
+      })
+
+      try {
+        await node1.init()
+        await node2.init()
+
+        // Add data to node1
+        const cid = await node1.add(new TextEncoder().encode('test data'))
+
+        // Attempt to retrieve from node2 should fail quickly (under 2 seconds)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 2000))
+
+        await expect(Promise.race([
+          node2.get(cid),
+          timeoutPromise
+        ])).rejects.toThrow()
+
+        // Verify nodes have no multiaddrs in offline mode
+        expect(await node1.getMultiaddrs()).toHaveLength(0)
+        expect(await node2.getMultiaddrs()).toHaveLength(0)
+      } finally {
+        await node1.stop()
+        await node2.stop()
+      }
+    })
+
+    it('should allow network communication when enabled', async () => {
+      // Create two networked nodes
+      const node1 = new PersistentIpfsNode({ 
+        storageDirectory: tempDir,
+        enableNetworking: true,
+        listenAddresses: ['/ip4/127.0.0.1/tcp/0'] // Random port
+      })
+      
+      const node2 = new PersistentIpfsNode({
+        storageDirectory: await mkdtemp(join(tmpdir(), 'ipfs-test-2-')),
+        enableNetworking: true,
+        listenAddresses: ['/ip4/127.0.0.1/tcp/0'] // Random port
+      })
+
+      try {
+        await node1.init()
+        await node2.init()
+
+        // Get node1's multiaddr and connect node2 to it
+        const node1Addrs = await node1.getMultiaddrs()
+        expect(node1Addrs.length).toBeGreaterThan(0)
+        
+        // Connect the nodes
+        await node2.dial(node1Addrs[0])
+
+        // Add data to node1
+        const testData = 'test data for network sharing'
+        const cid = await node1.add(new TextEncoder().encode(testData))
+
+        // Node2 should be able to retrieve the data
+        const retrievedData = await node2.get(cid)
+        expect(new TextDecoder().decode(retrievedData)).toBe(testData)
+      } finally {
+        await node1.stop()
+        await node2.stop()
+      }
+    }, 10000) // Reduced timeout since we're explicitly connecting nodes
   })
 }) 

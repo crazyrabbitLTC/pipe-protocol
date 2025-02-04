@@ -16,6 +16,7 @@
  * - Retrieves data using CIDs
  * - Maintains data between sessions
  * - Properly manages node lifecycle
+ * - Controls network exposure (enabled/disabled)
  */
 
 import { createHelia } from 'helia'
@@ -25,12 +26,25 @@ import { FsBlockstore } from 'blockstore-fs'
 import { join } from 'path'
 import { CID } from 'multiformats/cid'
 import EventEmitter from 'events'
+import { createLibp2p } from 'libp2p'
+import { tcp } from '@libp2p/tcp'
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
+import { identify } from '@libp2p/identify'
+import { mdns } from '@libp2p/mdns'
+import { bootstrap } from '@libp2p/bootstrap'
+import { type Libp2p } from '@libp2p/interface'
+import { type PeerId } from '@libp2p/interface/peer-id'
+import { multiaddr } from '@multiformats/multiaddr'
 
 // Increase the default max listeners
 EventEmitter.setMaxListeners(20)
 
 export interface PersistentIpfsOptions {
   storageDirectory: string
+  enableNetworking?: boolean
+  listenAddresses?: string[]
+  bootstrapList?: string[]
 }
 
 export class PersistentIpfsNode {
@@ -39,10 +53,53 @@ export class PersistentIpfsNode {
   private blockstore: FsBlockstore | null = null
   private cidMap: Map<string, CID> = new Map()
   private readonly storageDirectory: string
+  private readonly enableNetworking: boolean
+  private readonly listenAddresses: string[]
+  private readonly bootstrapList: string[]
   private isInitialized: boolean = false
 
   constructor(options: PersistentIpfsOptions) {
     this.storageDirectory = options.storageDirectory
+    this.enableNetworking = options.enableNetworking ?? false
+    this.listenAddresses = options.listenAddresses ?? ['/ip4/127.0.0.1/tcp/0']
+    this.bootstrapList = options.bootstrapList ?? []
+  }
+
+  private async createLibp2p(): Promise<Libp2p> {
+    if (!this.enableNetworking) {
+      // Return a libp2p instance with networking disabled
+      return await createLibp2p({
+        start: false,
+        addresses: {
+          listen: []
+        }
+      })
+    }
+
+    const services: any = {
+      identify: identify(),
+      mdns: mdns({
+        interval: 1000 // Faster discovery for testing
+      })
+    }
+
+    // Only add bootstrap service if we have bootstrap peers
+    if (this.bootstrapList.length > 0) {
+      services.bootstrap = bootstrap({
+        list: this.bootstrapList
+      })
+    }
+
+    // Return a fully networked libp2p instance
+    return await createLibp2p({
+      addresses: {
+        listen: this.listenAddresses
+      },
+      transports: [tcp()],
+      connectionEncrypters: [noise()],
+      streamMuxers: [yamux()],
+      services
+    })
   }
 
   async init(): Promise<void> {
@@ -55,10 +112,13 @@ export class PersistentIpfsNode {
       this.blockstore = new FsBlockstore(join(this.storageDirectory, 'blocks'))
       await this.blockstore.open()
 
-      // Initialize Helia with the persistent blockstore
+      // Create libp2p instance with appropriate networking configuration
+      const libp2p = await this.createLibp2p()
+
+      // Initialize Helia with the persistent blockstore and libp2p
       this.helia = await createHelia({
         blockstore: this.blockstore,
-        start: true
+        libp2p
       })
 
       this.fs = unixfs(this.helia)
@@ -145,6 +205,24 @@ export class PersistentIpfsNode {
       console.error('Failed to get data:', error)
       throw error
     }
+  }
+
+  async getMultiaddrs(): Promise<string[]> {
+    if (!this.helia?.libp2p) {
+      return []
+    }
+    return this.helia.libp2p.getMultiaddrs().map(ma => ma.toString())
+  }
+
+  async getPeerId(): Promise<PeerId | null> {
+    return this.helia?.libp2p?.peerId ?? null
+  }
+
+  async dial(addr: string): Promise<void> {
+    if (!this.enableNetworking || !this.helia?.libp2p) {
+      throw new Error('Networking is disabled')
+    }
+    await this.helia.libp2p.dial(multiaddr(addr))
   }
 
   async stop(): Promise<void> {
