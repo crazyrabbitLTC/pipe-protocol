@@ -1,16 +1,18 @@
 # Pipe Protocol
 
-A protocol for wrapping LLM tools with IPFS storage and schema generation capabilities.
+A protocol for wrapping LLM tools with IPFS storage, encryption, and schema generation capabilities.
 
 ## Features
 
-- Store tool inputs and outputs on IPFS
-- Automatic schema generation for stored data
-- Token counting and limiting
-- Configurable storage scopes (private/public)
-- Configurable pinning options
-- Pre and post-store hooks for data processing
-- Tool wrapping with enhanced capabilities
+- 🔄 Store tool inputs and outputs on IPFS with content-addressable storage
+- 📊 Automatic schema generation and validation for stored data
+- 🔒 Multiple storage scopes (private/public/machine/user)
+- 🎯 Token counting and limiting for LLM context management
+- 📌 Configurable pinning options for data persistence
+- 🔐 Built-in encryption support with flexible access policies
+- 🪝 Pre and post-store hooks for custom data processing
+- 🛠️ Tool wrapping with enhanced capabilities
+- 📦 Bundle support for schema and data pairing
 
 ## Installation
 
@@ -22,12 +24,147 @@ npm install pipe-protocol
 
 ```typescript
 import { Pipe } from 'pipe-protocol';
+import type { Tool } from 'pipe-protocol/types';
 
-// Initialize with default configuration
+// Initialize Pipe
 const pipe = new Pipe();
 
-// Or with custom configuration
-const pipeWithConfig = new Pipe({
+// Define your tool
+const myTool: Tool = {
+  name: 'example',
+  description: 'An example tool',
+  parameters: {
+    type: 'object',
+    properties: {
+      input: { type: 'string' }
+    },
+    required: ['input']
+  },
+  call: async (args: { input: string }) => {
+    return { result: args.input };
+  }
+};
+
+// Wrap your tool
+const [wrappedTool] = pipe.wrap([myTool]);
+
+// Use the wrapped tool
+const result = await wrappedTool.call({
+  input: 'test',
+  pipeOptions: {
+    scope: 'private',
+    generateSchema: true,
+    pin: true
+  }
+});
+
+console.log(result);
+// {
+//   result: 'test',
+//   cid: 'Qm...',
+//   schemaCid: 'Qm...',
+//   metadata: {
+//     tool: 'example',
+//     truncated: false,
+//     pinned: true,
+//     scope: 'private'
+//   }
+// }
+```
+
+## Core Concepts
+
+### Records and Bundles
+
+```typescript
+// Create and publish a record
+const record: PipeRecord = {
+  type: 'data',
+  content: { message: 'Hello, World!' },
+  scope: 'private',
+  accessPolicy: { hiddenFromLLM: false }
+};
+
+const published = await pipe.publishRecord(record);
+
+// Create and publish a bundle (data + schema)
+const bundle: PipeBundle = {
+  schemaRecord: {
+    type: 'schema',
+    content: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    },
+    scope: 'private'
+  },
+  dataRecord: record,
+  combinedScope: 'private'
+};
+
+const publishedBundle = await pipe.publishBundle(bundle);
+```
+
+### Storage Scopes
+
+- `private`: Data accessible only within the local context
+- `public`: Data that can be shared and replicated across nodes
+- `machine`: Data specific to the current machine/environment
+- `user`: Data specific to the current user
+
+```typescript
+// Replicate data between scopes
+await pipe.replicate(cid, 'private', 'public');
+```
+
+### Token Management
+
+```typescript
+const pipe = new Pipe({
+  defaults: {
+    maxTokens: 1000,
+    storeResult: true
+  }
+});
+
+// Results exceeding maxTokens will be truncated
+// and marked in metadata: { truncated: true }
+```
+
+### Access Policies
+
+```typescript
+const record: PipeRecord = {
+  type: 'data',
+  content: { sensitive: 'data' },
+  scope: 'private',
+  accessPolicy: {
+    hiddenFromLLM: true,
+    allowedTools: ['specificTool']
+  }
+};
+```
+
+### Hook System
+
+```typescript
+pipe.addHooks([
+  {
+    name: 'preprocessor',
+    type: 'beforeStore',
+    handler: async (data) => {
+      // Process data before storage
+      return processedData;
+    }
+  }
+]);
+```
+
+## Configuration
+
+```typescript
+const pipe = new Pipe({
   ipfs: {
     endpoint: 'http://localhost:5001',
     timeout: 30000,
@@ -42,145 +179,6 @@ const pipeWithConfig = new Pipe({
     pin: true
   }
 });
-
-// Wrap your existing tools
-const tools = pipe.wrap([
-  {
-    name: 'myTool',
-    description: 'A sample tool',
-    parameters: {
-      type: 'object',
-      properties: {
-        input: { type: 'string' }
-      }
-    },
-    call: async (args) => {
-      return { result: args.input };
-    }
-  }
-]);
-
-// Use the wrapped tool
-const result = await tools[0].call({
-  input: 'test'
-});
-
-console.log(result);
-// {
-//   result: 'test',
-//   cid: 'Qm...',
-//   schemaCid: 'Qm...',
-//   metadata: {
-//     tool: 'myTool',
-//     truncated: false,
-//     pinned: true,
-//     scope: 'private'
-//   }
-// }
-```
-
-## Configuration
-
-### IPFS Configuration
-
-```typescript
-interface IPFSClientConfig {
-  endpoint: string;    // IPFS node endpoint
-  timeout: number;     // Request timeout in milliseconds
-  scope: 'public' | 'private';  // Default storage scope
-  pin: boolean;       // Whether to pin data by default
-}
-```
-
-### Default Configuration
-
-```typescript
-interface PipeConfig {
-  ipfs?: Partial<IPFSClientConfig>;
-  defaults?: {
-    maxTokens?: number;          // Maximum tokens allowed in results
-    storeResult?: boolean;       // Whether to store results in IPFS
-    generateSchema?: boolean;    // Whether to generate and store schemas
-    scope?: 'public' | 'private'; // Storage scope
-    pin?: boolean;              // Whether to pin data
-  };
-}
-```
-
-## Storage Scopes
-
-- `private`: Data stored with restricted access
-- `public`: Data stored with public access
-
-## Token Counting and Limiting
-
-The protocol automatically counts tokens in tool results and can enforce token limits:
-
-```typescript
-const pipe = new Pipe({
-  defaults: {
-    maxTokens: 100 // Limit results to 100 tokens
-  }
-});
-
-// Results exceeding the token limit will be truncated
-// and marked in the metadata: { truncated: true }
-```
-
-## Schema Generation
-
-Schemas are automatically generated for stored data when enabled:
-
-```typescript
-const pipe = new Pipe({
-  defaults: {
-    generateSchema: true
-  }
-});
-
-// The schema will be stored in IPFS and its CID
-// will be included in the result as 'schemaCid'
-```
-
-## Hooks
-
-Add pre and post-store processing:
-
-```typescript
-pipe.addHooks([
-  {
-    name: 'dataProcessor',
-    type: 'beforeStore',
-    handler: async (data) => {
-      // Process data before storage
-      return processedData;
-    }
-  },
-  {
-    name: 'notifier',
-    type: 'afterStore',
-    handler: async (data) => {
-      // Handle data after storage
-      notifyStorage(data);
-      return data;
-    }
-  }
-]);
-```
-
-## Direct IPFS Operations
-
-You can also use IPFS operations directly:
-
-```typescript
-// Store data
-const cid = await pipe.store(data, {
-  pin: true,
-  scope: 'public'
-});
-
-// Retrieve data
-const retrieved = await pipe.retrieve(cid);
 ```
 
 ## Development
@@ -197,7 +195,16 @@ npm run build
 
 # Lint
 npm run lint
+
+# Run specific test suites
+npm run test:llm-wrapping
+npm run test:basic
+npm run test:ipfs
 ```
+
+## API Documentation
+
+For detailed API documentation, visit our [documentation site](https://pipe-protocol.github.io/docs).
 
 ## Contributing
 
@@ -207,6 +214,12 @@ npm run lint
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+Please ensure your PR:
+- Includes tests for new functionality
+- Maintains or improves code coverage
+- Follows the existing code style
+- Updates documentation as needed
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
