@@ -46,6 +46,7 @@ export function wrapTool(tool: Tool, config: WrappedToolConfig): Tool {
 Additional Information:
 This tool is wrapped by Pipe Protocol, providing IPFS storage capabilities. The tool's output includes:
 - cid: IPFS Content Identifier for the stored result
+- schema: JSON Schema of the result data
 - schemaCid: IPFS Content Identifier for the result's JSON schema
 - metadata: Additional information including tool name, storage scope, and pinning status`;
 
@@ -75,9 +76,10 @@ This tool is wrapped by Pipe Protocol, providing IPFS storage capabilities. The 
       // Store the result in IPFS if configured
       if (config.storeResult) {
         // Generate schema if requested
+        let schema = null;
         let schemaCid = 'no-schema';
         if (config.generateSchema) {
-          const schema = generateSchema(processedResult);
+          schema = generateSchema(processedResult);
           schemaCid = await config.ipfsClient.store(schema, {
             pin: config.pin,
             scope: config.scope
@@ -97,6 +99,7 @@ This tool is wrapped by Pipe Protocol, providing IPFS storage capabilities. The 
         return {
           ...processedResult,
           cid,
+          schema,
           schemaCid,
           metadata: {
             tool: tool.name,

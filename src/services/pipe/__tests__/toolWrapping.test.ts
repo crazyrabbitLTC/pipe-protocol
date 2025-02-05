@@ -126,6 +126,7 @@ describe('Tool Wrapping', () => {
       expect(wrappedTool.description).toContain('Additional Information:');
       expect(wrappedTool.description).toContain('wrapped by Pipe Protocol');
       expect(wrappedTool.description).toContain('IPFS storage capabilities');
+      expect(wrappedTool.description).toContain('schema: JSON Schema of the result data');
       expect(wrappedTool.description).toContain('cid:');
       expect(wrappedTool.description).toContain('schemaCid:');
       expect(wrappedTool.description).toContain('metadata:');
@@ -137,12 +138,22 @@ describe('Tool Wrapping', () => {
       const wrappedTool = wrapTool(mockTool, {
         ipfsClient: mockIpfsClient,
         storeResult: true,
+        generateSchema: true,
         pin: true,
         scope: 'private'
       });
 
       const result = await wrappedTool.call({ input: 'test' });
       expect(result).toHaveProperty('cid');
+      expect(result).toHaveProperty('schema');
+      expect(result).toHaveProperty('schemaCid');
+      expect(result.schema).toEqual({
+        type: 'object',
+        properties: {
+          result: { type: 'string' }
+        },
+        required: ['result']
+      });
       expect(result.metadata).toHaveProperty('tool', 'mockTool');
       expect(result.metadata).toHaveProperty('pinned', true);
     });
