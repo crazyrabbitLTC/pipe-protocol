@@ -57,8 +57,9 @@ describe('Pipe', () => {
     it('should use default configuration when none provided', () => {
       const pipe = new Pipe();
       const tools = pipe.wrap([mockTool]);
-      expect(tools).toHaveLength(1);
+      expect(tools).toHaveLength(2); // Includes pipe tool
       expect(tools[0].name).toBe(mockTool.name);
+      expect(tools[1].name).toBe('pipe'); // Pipe tool is last
     });
 
     it('should accept custom configuration', () => {
@@ -69,12 +70,14 @@ describe('Pipe', () => {
           pin: false
         },
         defaults: {
-          maxTokens: 100,
+          maxTokens: 500,
           storeResult: false
         }
       });
       const tools = pipe.wrap([mockTool]);
-      expect(tools).toHaveLength(1);
+      expect(tools).toHaveLength(2); // Includes pipe tool
+      expect(tools[0].name).toBe(mockTool.name);
+      expect(tools[1].name).toBe('pipe'); // Pipe tool is last
     });
   });
 

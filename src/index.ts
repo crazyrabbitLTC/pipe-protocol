@@ -1,12 +1,12 @@
-import { PipeProtocol } from './pipe';
+import { Pipe } from './pipe';
 import { Tool } from './types';
 
 export function pipe(tools: Tool[]) {
-  const protocol = new PipeProtocol({});
+  const protocol = new Pipe({});
   return protocol.wrap(tools);
 }
 
-export { PipeProtocol };
+export { Pipe };
 export { IpfsClient } from './ipfsClient';
 export * from './types';
 export * from './schema';

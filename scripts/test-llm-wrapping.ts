@@ -1,16 +1,17 @@
-import { PipeProtocol } from '../src/pipe.js';
+import { Pipe } from '../src/pipe.js';
 import type { Tool } from '../src/types.js';
 
 async function testLLMWrapping() {
   console.log('Testing LLM function wrapping with Pipe...');
   
-  let pipe: PipeProtocol | undefined;
+  let pipe: Pipe | undefined;
 
   try {
-    // Initialize PipeProtocol
-    pipe = new PipeProtocol({
-      localNodeEndpoint: 'http://localhost:5001',
-      publicNodeEndpoint: 'http://localhost:5001'
+    // Initialize Pipe
+    pipe = new Pipe({
+      ipfs: {
+        endpoint: 'http://localhost:5001'
+      }
     });
 
     // Mock LLM function that simulates making an API call
@@ -64,7 +65,7 @@ async function testLLMWrapping() {
     for (const prompt of prompts) {
       console.log(`\nSending prompt: "${prompt}"`);
       
-      const result = await wrappedLLMTool.execute({
+      const result = await wrappedLLMTool.call({
         prompt,
         pipeOptions: {
           scope: 'private',
@@ -77,8 +78,8 @@ async function testLLMWrapping() {
       console.log('Schema CID:', result.schemaCid);
       
       // Fetch the stored result
-      const storedRecord = await pipe.fetchRecord(result.cid, 'private');
-      console.log('Stored content:', storedRecord?.content);
+      const storedContent = await pipe.retrieve(result.cid);
+      console.log('Stored content:', storedContent);
     }
 
     console.log('\nTest completed successfully!');
@@ -88,19 +89,6 @@ async function testLLMWrapping() {
       console.error('Error stack:', error.stack);
     }
     process.exit(1);
-  } finally {
-    try {
-      if (pipe) {
-        await pipe.stop();
-        console.log('\nTest completed and node stopped.');
-      }
-    } catch (error) {
-      console.error('Error stopping node:', error);
-      if (error instanceof Error) {
-        console.error('Error stack:', error.stack);
-      }
-      process.exit(1);
-    }
   }
 }
 

@@ -26,6 +26,7 @@
 import { Tool } from './types/tool';
 import { IPFSClient, IPFSClientConfig } from './services/ipfs/ipfsClient';
 import { wrapTool } from './services/pipe/toolWrapping';
+import { createPipeTool } from './services/pipe/pipeTool';
 
 export type HookType = 'beforeStore' | 'afterStore';
 
@@ -137,8 +138,11 @@ export class Pipe {
    * Wrap tools with IPFS capabilities
    */
   public wrap(tools: Tool[]): Tool[] {
-    // Wrap all tools
-    return tools.map(tool => wrapTool(tool, {
+    // Create the pipe tool
+    const pipeTool = createPipeTool(this.ipfsClient);
+    
+    // Wrap the provided tools
+    const wrappedTools = tools.map(tool => wrapTool(tool, {
       ipfsClient: this.ipfsClient,
       maxTokens: this.config.defaults.maxTokens,
       storeResult: this.config.defaults.storeResult,
@@ -150,5 +154,8 @@ export class Pipe {
         afterStore: (data: unknown) => this.executeHooks('afterStore', data)
       }
     }));
+
+    // Append the pipe tool at the end
+    return [...wrappedTools, pipeTool];
   }
 } 

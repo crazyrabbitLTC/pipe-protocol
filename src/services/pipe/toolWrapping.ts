@@ -42,27 +42,13 @@ export interface WrappedToolConfig {
 
 export function wrapTool(tool: Tool, config: WrappedToolConfig): Tool {
   // Generate hook documentation if hooks are present
-  const hookDocs = config.hooks ? `
-
-Hooks:
-${config.hooks.beforeStore ? '- Pre-Store: Process data before IPFS storage' : ''}
-${config.hooks.afterStore ? '- Post-Store: Process data after IPFS storage' : ''}
-Results include: validation, statistics, storage details, and metadata` : '';
+  const hookDocs = config.hooks ? `\nHooks: ${config.hooks.beforeStore ? 'pre-store, ' : ''}${config.hooks.afterStore ? 'post-store' : ''}` : '';
 
   const pipeDescription = `${tool.description}
 
-Additional Information:
-- Tool wrapped by Pipe Protocol
-- IPFS storage capabilities
-- Schema generation and validation
-- Token management and metadata
-${hookDocs}
+Enhanced by Pipe Protocol with IPFS storage, schema validation, and token management.${hookDocs}
 
-Results include:
-- CID for stored data
-- Schema information
-- Execution metadata
-- Hook processing results`;
+Outputs: CID, schema, metadata, and execution details.`;
 
   return {
     ...tool,

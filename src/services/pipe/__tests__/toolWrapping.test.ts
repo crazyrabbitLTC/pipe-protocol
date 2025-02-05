@@ -66,7 +66,7 @@ describe('Tool Wrapping', () => {
       });
 
       expect(wrappedTool.name).toBe(mockTool.name);
-      expect(wrappedTool.description).toBe(mockTool.description);
+      expect(wrappedTool.description).toContain(mockTool.description);
       expect(wrappedTool.parameters).toEqual(mockTool.parameters);
     });
 
@@ -118,18 +118,10 @@ describe('Tool Wrapping', () => {
         scope: 'private'
       });
 
-      // Original description should come first
-      const descriptionLines = wrappedTool.description.split('\n');
-      expect(descriptionLines[0]).toBe(mockTool.description);
-      
-      // Pipe information should come after
-      expect(wrappedTool.description).toContain('Additional Information:');
-      expect(wrappedTool.description).toContain('wrapped by Pipe Protocol');
-      expect(wrappedTool.description).toContain('IPFS storage capabilities');
-      expect(wrappedTool.description).toContain('schema: JSON Schema of the result data');
-      expect(wrappedTool.description).toContain('cid:');
-      expect(wrappedTool.description).toContain('schemaCid:');
-      expect(wrappedTool.description).toContain('metadata:');
+      expect(wrappedTool.description).toContain('Enhanced by Pipe Protocol');
+      expect(wrappedTool.description).toContain('IPFS storage');
+      expect(wrappedTool.description).toContain('schema validation');
+      expect(wrappedTool.description).toContain('token management');
     });
   });
 
