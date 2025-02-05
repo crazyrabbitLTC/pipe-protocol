@@ -1,0 +1,27 @@
+{
+  "id": "core-concepts/records-and-bundles",
+  "title": "Records and Bundles",
+  "description": "Pipe Protocol uses two main data structures for managing content: Records and Bundles. Understanding these structures is crucial for working with Pipe effectively.",
+  "source": "@site/docs/core-concepts/records-and-bundles.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/records-and-bundles",
+  "permalink": "/docs/core-concepts/records-and-bundles",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/pipe-protocol/pipe/tree/main/pipe-docs/website/docs/core-concepts/records-and-bundles.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Tool Wrapping",
+    "permalink": "/docs/core-concepts/tool-wrapping"
+  },
+  "next": {
+    "title": "Scopes",
+    "permalink": "/docs/core-concepts/scopes"
+  }
+}

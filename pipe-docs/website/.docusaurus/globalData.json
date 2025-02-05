@@ -1,0 +1,65 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/docs",
+          "mainDocId": "intro",
+          "docs": [
+            {
+              "id": "api-reference/pipe",
+              "path": "/docs/api-reference/pipe"
+            },
+            {
+              "id": "core-concepts/hooks",
+              "path": "/docs/core-concepts/hooks",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "core-concepts/records-and-bundles",
+              "path": "/docs/core-concepts/records-and-bundles",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "core-concepts/scopes",
+              "path": "/docs/core-concepts/scopes",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "core-concepts/tool-wrapping",
+              "path": "/docs/core-concepts/tool-wrapping",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "getting-started/installation",
+              "path": "/docs/getting-started/installation"
+            },
+            {
+              "id": "guides/basic-usage",
+              "path": "/docs/guides/basic-usage"
+            },
+            {
+              "id": "intro",
+              "path": "/docs/intro",
+              "sidebar": "tutorialSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "tutorialSidebar": {
+              "link": {
+                "path": "/docs/intro",
+                "label": "intro"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

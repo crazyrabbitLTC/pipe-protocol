@@ -1,0 +1,27 @@
+{
+  "id": "core-concepts/scopes",
+  "title": "Scopes",
+  "description": "Scopes in Pipe Protocol determine how data is stored, accessed, and replicated across different contexts. Understanding scopes is crucial for managing data visibility and access control.",
+  "source": "@site/docs/core-concepts/scopes.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/scopes",
+  "permalink": "/docs/core-concepts/scopes",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/pipe-protocol/pipe/tree/main/pipe-docs/website/docs/core-concepts/scopes.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Records and Bundles",
+    "permalink": "/docs/core-concepts/records-and-bundles"
+  },
+  "next": {
+    "title": "Hooks",
+    "permalink": "/docs/core-concepts/hooks"
+  }
+}

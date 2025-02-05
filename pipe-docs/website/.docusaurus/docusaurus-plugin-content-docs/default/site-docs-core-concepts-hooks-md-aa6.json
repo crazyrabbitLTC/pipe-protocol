@@ -1,0 +1,23 @@
+{
+  "id": "core-concepts/hooks",
+  "title": "Hooks",
+  "description": "Hooks in Pipe Protocol provide a way to extend and customize the behavior of data processing. They allow you to execute custom logic before and after data is stored in IPFS.",
+  "source": "@site/docs/core-concepts/hooks.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/hooks",
+  "permalink": "/docs/core-concepts/hooks",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/pipe-protocol/pipe/tree/main/pipe-docs/website/docs/core-concepts/hooks.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Scopes",
+    "permalink": "/docs/core-concepts/scopes"
+  }
+}

@@ -19,7 +19,7 @@ function generateFibonacci(n: number): number[] {
   return sequence;
 }
 
-// Define our tool
+// Define our tool with properly typed parameters
 const fibonacciTool: Tool = {
   name: 'generate_fibonacci',
   description: 'Generate a Fibonacci sequence up to n numbers (minimum 2)',
@@ -42,41 +42,37 @@ const fibonacciTool: Tool = {
 // Wrap the tool with Pipe
 const wrappedTools = pipe.wrap([fibonacciTool]);
 
+// Format wrapped tools for OpenAI
+const openAITools: ChatCompletionTool[] = wrappedTools.map(tool => ({
+  type: 'function',
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: {
+      type: 'object',
+      properties: tool.parameters.properties,
+      required: tool.parameters.required,
+      additionalProperties: false
+    }
+  }
+}));
+
 async function main() {
   try {
-    // Define the OpenAI tools schema
-    const tools: ChatCompletionTool[] = [
-      {
-        type: 'function',
-        function: {
-          name: 'generate_fibonacci',
-          description: 'Generate a Fibonacci sequence up to n numbers (minimum 2)',
-          parameters: {
-            type: 'object',
-            properties: {
-              n: {
-                type: 'number',
-                description: 'Number of Fibonacci numbers to generate (must be 2 or greater)'
-              }
-            },
-            required: ['n']
-          }
-        }
-      }
-    ];
-
     const initialMessage: ChatCompletionMessageParam = { 
       role: 'user', 
       content: 'Can you generate the first 10 numbers of the Fibonacci sequence?' 
     };
 
     console.log('Sending request to OpenAI...');
+    console.log('Initial message:', initialMessage);
+    console.log('Tools:', JSON.stringify(openAITools, null, 2));
     
     // First OpenAI call to get function calling
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [initialMessage],
-      tools
+      tools: openAITools
     });
 
     console.log('OpenAI Response:', JSON.stringify(completion.choices[0].message, null, 2));
@@ -94,21 +90,17 @@ async function main() {
     const args = JSON.parse(toolCall.function.arguments);
     
     console.log('Executing wrapped tool with args:', args);
-    const wrappedResult = await wrappedTools[0].call(args);
-    console.log('Wrapped result:', wrappedResult);
+    const result = await wrappedTools[0].call(args);
+    console.log('Wrapped result:', result);
 
     // Create the messages array with proper typing
     const messages: ChatCompletionMessageParam[] = [
       initialMessage,
-      {
-        role: 'assistant',
-        content: 'I will help you generate the Fibonacci sequence.',
-        tool_calls: toolCalls
-      },
+      completion.choices[0].message,
       {
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: JSON.stringify(wrappedResult)
+        content: JSON.stringify(result.content || '') // Ensure content is never null
       }
     ];
 
@@ -119,23 +111,24 @@ async function main() {
     const finalCompletion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages,
-      tools
+      tools: openAITools
     });
 
     console.log('\nFinal Response:', finalCompletion.choices[0].message.content);
     console.log('\nPipe Enhanced Result:');
-    console.log('- IPFS CID:', wrappedResult.cid);
-    console.log('- Metadata:', wrappedResult.metadata);
+    console.log('- IPFS CID:', result.cid);
+    console.log('- Schema CID:', result.schemaCid);
+    console.log('- Metadata:', result.metadata);
 
     // Fetch and display the content from IPFS
     console.log('\nFetching content from IPFS...');
-    const storedContent = await pipe.retrieve(wrappedResult.cid);
+    const storedContent = await pipe.retrieve(result.cid);
     console.log('Content stored in IPFS:', storedContent);
 
     // Also fetch and display the schema if available
-    if (wrappedResult.schemaCid) {
+    if (result.schemaCid) {
       console.log('\nFetching schema from IPFS...');
-      const storedSchema = await pipe.retrieve(wrappedResult.schemaCid);
+      const storedSchema = await pipe.retrieve(result.schemaCid);
       console.log('Schema stored in IPFS:', storedSchema);
     }
     
@@ -145,4 +138,4 @@ async function main() {
 }
 
 // Run the example
-main(); 
+main();   

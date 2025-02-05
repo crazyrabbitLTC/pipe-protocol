@@ -1,0 +1,27 @@
+{
+  "id": "core-concepts/tool-wrapping",
+  "title": "Tool Wrapping",
+  "description": "Tool wrapping is a core concept in Pipe Protocol that enables existing tools to work with IPFS storage. When you wrap a tool, you enhance it with additional capabilities while preserving its original functionality.",
+  "source": "@site/docs/core-concepts/tool-wrapping.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/tool-wrapping",
+  "permalink": "/docs/core-concepts/tool-wrapping",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/pipe-protocol/pipe/tree/main/pipe-docs/website/docs/core-concepts/tool-wrapping.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Introduction to Pipe Protocol",
+    "permalink": "/docs/intro"
+  },
+  "next": {
+    "title": "Records and Bundles",
+    "permalink": "/docs/core-concepts/records-and-bundles"
+  }
+}
