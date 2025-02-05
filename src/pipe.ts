@@ -27,6 +27,8 @@ import { Tool } from './types/tool';
 import { IPFSClient, IPFSClientConfig } from './services/ipfs/ipfsClient';
 import { wrapTool } from './services/pipe/toolWrapping';
 import { createPipeTool } from './services/pipe/pipeTool';
+import { PipeRecord, Scope, PipeBundle } from './types';
+import { generateSummary } from './utils';
 
 export type HookType = 'beforeStore' | 'afterStore';
 
@@ -131,7 +133,7 @@ export class Pipe {
    * Retrieve data from IPFS
    */
   public async retrieve(cid: string): Promise<unknown> {
-    return this.ipfsClient.fetch(cid);
+    return this.ipfsClient.fetch(cid, this.config.defaults.scope || 'private');
   }
 
   /**
@@ -158,4 +160,119 @@ export class Pipe {
     // Append the pipe tool at the end
     return [...wrappedTools, pipeTool];
   }
-} 
+
+  /**
+   * Publish a record to IPFS
+   */
+  public async publishRecord(record: PipeRecord): Promise<PipeRecord> {
+    const processedRecord = await this.executeHooks('beforeStore', record) as PipeRecord;
+    const cid = await this.ipfsClient.store(processedRecord, {
+      pin: this.config.defaults.pin,
+      scope: processedRecord.scope as 'public' | 'private'
+    });
+    const publishedRecord = { ...processedRecord, cid };
+    await this.executeHooks('afterStore', publishedRecord);
+    return publishedRecord;
+  }
+
+  /**
+   * Fetch a record from IPFS
+   */
+  public async fetchRecord(cid: string, scope: Scope): Promise<PipeRecord | null> {
+    return this.ipfsClient.fetch(cid, scope);
+  }
+
+  /**
+   * Pin a record in IPFS
+   */
+  public async pin(cid: string, scope: Scope): Promise<void> {
+    await this.ipfsClient.pin(cid, scope);
+  }
+
+  /**
+   * Unpin a record from IPFS
+   */
+  public async unpin(cid: string, scope: Scope): Promise<void> {
+    await this.ipfsClient.unpin(cid, scope);
+  }
+
+  /**
+   * Get pinned CIDs for a scope
+   */
+  public async getPinnedCids(scope: Scope): Promise<string[]> {
+    return this.ipfsClient.getPinnedCids(scope);
+  }
+
+  /**
+   * Get node status
+   */
+  public getStatus(): { localNode: boolean; publicNode: boolean } {
+    return this.ipfsClient.getStatus();
+  }
+
+  /**
+   * Get node info for a scope
+   */
+  public getNodeInfo(scope: Scope): Promise<any> {
+    return this.ipfsClient.getNodeInfo(scope);
+  }
+
+  /**
+   * Get storage metrics for a scope
+   */
+  public async getStorageMetrics(scope: Scope): Promise<{ totalSize: number; numObjects: number }> {
+    return this.ipfsClient.getStorageMetrics(scope);
+  }
+
+  /**
+   * Publish a bundle to IPFS
+   */
+  public async publishBundle(bundle: PipeBundle): Promise<PipeBundle> {
+    const processedBundle = await this.executeHooks('beforeStore', bundle) as PipeBundle;
+    const schemaRecord = await this.publishRecord(processedBundle.schemaRecord);
+    const dataRecord = await this.publishRecord(processedBundle.dataRecord);
+    const publishedBundle = { ...processedBundle, schemaRecord, dataRecord };
+    await this.executeHooks('afterStore', publishedBundle);
+    return publishedBundle;
+  }
+
+  /**
+   * Replicate a record from one scope to another
+   */
+  public async replicate(cid: string, fromScope: Scope, toScope: Scope): Promise<void> {
+    await this.ipfsClient.replicate(cid, fromScope, toScope);
+  }
+
+  /**
+   * Get configuration for a scope
+   */
+  public async getConfiguration(scope: Scope): Promise<any> {
+    return this.ipfsClient.getConfiguration(scope);
+  }
+
+  /**
+   * Stop the pipe and cleanup resources
+   */
+  public async stop(): Promise<void> {
+    await this.ipfsClient.stop();
+  }
+}
+
+export { Pipe as PipeProtocol };
+
+/**
+ * Example summary hook that generates a summary of data before storage
+ */
+export const summaryHook: Hook = {
+  name: 'summary',
+  type: 'beforeStore',
+  handler: async (data: unknown) => {
+    const summary = await generateSummary(data);
+    return {
+      data,
+      metadata: {
+        summary
+      }
+    };
+  }
+}; 

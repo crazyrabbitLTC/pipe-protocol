@@ -1,67 +1,67 @@
 import express from 'express';
-import { PipeProtocol } from './pipe';
-import { PipeRecord, PipeBundle, Scope } from './types';
+import { Pipe } from './pipe';
+import { Scope } from './types';
 
-export function createPipeAPI(pipe: PipeProtocol) {
+export function createApi(pipe: Pipe) {
   const app = express();
   app.use(express.json());
 
-  app.post('/publish', async (req, res) => {
+  app.post('/store', async (req, res) => {
     try {
-      const record: PipeRecord = req.body;
+      const record = req.body;
       const published = await pipe.publishRecord(record);
-      res.json(published);
+      return res.json(published);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
-  app.post('/publish-bundle', async (req, res) => {
+  app.post('/store-bundle', async (req, res) => {
     try {
-      const bundle: PipeBundle = req.body;
+      const bundle = req.body;
       const published = await pipe.publishBundle(bundle);
-      res.json(published);
+      return res.json(published);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.get('/fetch', async (req, res) => {
     try {
       const { cid, scope } = req.query;
-      if (!cid || !scope) {
-        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      if (!cid) {
+        return res.status(400).json({ error: 'Missing CID parameter' });
       }
       const record = await pipe.fetchRecord(cid as string, scope as Scope);
-      res.json(record);
+      return res.json(record);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.post('/pin', async (req, res) => {
     try {
       const { cid, scope } = req.body;
-      if (!cid || !scope) {
-        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      if (!cid) {
+        return res.status(400).json({ error: 'Missing CID parameter' });
       }
       await pipe.pin(cid, scope as Scope);
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.post('/unpin', async (req, res) => {
     try {
       const { cid, scope } = req.body;
-      if (!cid || !scope) {
-        return res.status(400).json({ error: 'Missing cid or scope parameter' });
+      if (!cid) {
+        return res.status(400).json({ error: 'Missing CID parameter' });
       }
       await pipe.unpin(cid, scope as Scope);
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -72,70 +72,49 @@ export function createPipeAPI(pipe: PipeProtocol) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
       await pipe.replicate(cid, fromScope as Scope, toScope as Scope);
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.get('/node-status', async (_req, res) => {
-    try {
-      const status = await pipe.getStatus();
-      res.json(status);
-    } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.get('/node-info', async (req, res) => {
     try {
       const { scope } = req.query;
-      if (!scope) {
-        return res.status(400).json({ error: 'Missing scope parameter' });
-      }
       const info = await pipe.getNodeInfo(scope as Scope);
-      res.json(info);
+      return res.json(info);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.get('/storage-metrics', async (req, res) => {
     try {
       const { scope } = req.query;
-      if (!scope) {
-        return res.status(400).json({ error: 'Missing scope parameter' });
-      }
       const metrics = await pipe.getStorageMetrics(scope as Scope);
-      res.json(metrics);
+      return res.json(metrics);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.get('/pinned-cids', async(req, res) => {
     try {
       const { scope } = req.query;
-      if (!scope) {
-        return res.status(400).json({ error: 'Missing scope parameter' });
-      }
       const cids = await pipe.getPinnedCids(scope as Scope);
-      res.json(cids);
+      return res.json(cids);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 
   app.get('/configuration', async (req, res) => {
     try {
       const { scope } = req.query;
-      if (!scope) {
-        return res.status(400).json({ error: 'Missing scope parameter' });
-      }
       const config = await pipe.getConfiguration(scope as Scope);
-      res.json(config);
+      return res.json(config);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ error: (error as Error).message });
     }
   });
 

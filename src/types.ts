@@ -15,6 +15,11 @@ export interface PipeRecord {
   accessPolicy?: AccessPolicy;
   metadata?: Record<string, any>;
   timestamp?: string;
+  encryption?: {
+    enabled: boolean;
+    key?: string;
+    algorithm?: string;
+  };
 }
 
 export interface PipeBundle {

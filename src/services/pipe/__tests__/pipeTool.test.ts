@@ -7,21 +7,27 @@
  * Tests for Pipe tool functionality
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPipeTool } from '../pipeTool';
 import { IPFSClient } from '../../ipfs/ipfsClient';
 
-// Mock IPFS client
-const mockIpfsClient = {
-  fetch: vi.fn(),
-  store: vi.fn(),
-  pin: vi.fn(),
-  unpin: vi.fn()
-} as unknown as IPFSClient;
-
 describe('Pipe Tool', () => {
+  let mockIpfsClient: jest.Mocked<IPFSClient>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockIpfsClient = {
+      fetch: vi.fn(),
+      pin: vi.fn(),
+      unpin: vi.fn(),
+      store: vi.fn(),
+      replicate: vi.fn(),
+      getPinnedCids: vi.fn(),
+      getStatus: vi.fn(),
+      getNodeInfo: vi.fn(),
+      getStorageMetrics: vi.fn(),
+      getConfiguration: vi.fn(),
+      stop: vi.fn()
+    } as unknown as jest.Mocked<IPFSClient>;
   });
 
   it('should create a tool with correct interface', () => {
