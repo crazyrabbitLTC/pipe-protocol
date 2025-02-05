@@ -42,6 +42,8 @@ const hooks: Hook[] = [
   {
     name: 'fibonacci-validator',
     type: 'beforeStore',
+    description: 'Validates that the sequence follows Fibonacci rules (each number is the sum of the previous two)',
+    type: 'beforeStore',
     handler: async (data: unknown) => {
       log.info('Running validation hook...');
       if (Array.isArray(data)) {
@@ -55,6 +57,15 @@ const hooks: Hook[] = [
           }
         }
         log.success('Validation passed: Valid Fibonacci sequence');
+        return {
+          ...data,
+          hookResults: {
+            validation: {
+              passed: true,
+              message: 'Sequence validated as a proper Fibonacci sequence'
+            }
+          }
+        };
       }
       return data;
     }
@@ -63,6 +74,7 @@ const hooks: Hook[] = [
   {
     name: 'fibonacci-stats',
     type: 'beforeStore',
+    description: 'Calculates statistical information about the sequence including length, sum, average, maximum value, and golden ratio approximation',
     handler: async (data: unknown) => {
       log.info('Running statistics hook...');
       if (Array.isArray(data)) {
@@ -77,7 +89,17 @@ const hooks: Hook[] = [
           }
         };
         log.success('Statistics calculated:', stats.metadata);
-        return stats;
+        return {
+          ...stats,
+          hookResults: {
+            ...(data.hookResults || {}),
+            statistics: {
+              calculated: true,
+              results: stats.metadata,
+              analysis: `Sequence of ${stats.metadata.length} numbers with sum ${stats.metadata.sum}, average ${stats.metadata.average.toFixed(2)}, and maximum value ${stats.metadata.max}. The approximation of the golden ratio is ${stats.metadata.goldenRatioApprox?.toFixed(6)}.`
+            }
+          }
+        };
       }
       return data;
     }
@@ -86,6 +108,7 @@ const hooks: Hook[] = [
   {
     name: 'fibonacci-logger',
     type: 'afterStore',
+    description: 'Records storage timestamp and IPFS details for the sequence',
     handler: async (data: any) => {
       log.info('Running logging hook...');
       const timestamp = new Date().toISOString();
@@ -99,6 +122,14 @@ const hooks: Hook[] = [
         metadata: {
           ...data.metadata,
           timestamp
+        },
+        hookResults: {
+          ...(data.hookResults || {}),
+          storage: {
+            timestamp,
+            cid: data.cid,
+            message: `Sequence successfully stored in IPFS at ${timestamp} with CID ${data.cid}`
+          }
         }
       };
     }
@@ -112,7 +143,18 @@ pipe.addHooks(hooks);
 // Define our tool with properly typed parameters
 const fibonacciTool: Tool = {
   name: 'generate_fibonacci',
-  description: 'Generate a Fibonacci sequence up to n numbers (minimum 2)',
+  description: `Generate a Fibonacci sequence up to n numbers (minimum 2).
+
+This tool is enhanced with the following hooks:
+1. Fibonacci Validator: ${hooks[0].description}
+2. Statistics Calculator: ${hooks[1].description}
+3. Storage Logger: ${hooks[2].description}
+
+The response will include:
+- The generated Fibonacci sequence
+- Validation results
+- Statistical analysis
+- Storage information`,
   parameters: {
     type: 'object' as const,
     properties: {
@@ -193,7 +235,10 @@ async function main() {
       {
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: JSON.stringify(result.content || '') // Ensure content is never null
+        content: JSON.stringify({
+          sequence: result.sequence,
+          hookResults: result.hookResults
+        })
       }
     ];
 

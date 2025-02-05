@@ -41,14 +41,21 @@ export interface WrappedToolConfig {
 }
 
 export function wrapTool(tool: Tool, config: WrappedToolConfig): Tool {
+  // Generate hook documentation if hooks are present
+  const hookDocs = config.hooks ? `
+
+Hooks:
+${config.hooks.beforeStore ? '- Pre-Store: Process data before IPFS storage' : ''}
+${config.hooks.afterStore ? '- Post-Store: Process data after IPFS storage' : ''}
+Results include: validation, statistics, storage details, and metadata` : '';
+
   const pipeDescription = `${tool.description}
 
-Additional Information:
-This tool is wrapped by Pipe Protocol, providing IPFS storage capabilities. The tool's output includes:
-- cid: IPFS Content Identifier for the stored result
-- schema: JSON Schema of the result data
-- schemaCid: IPFS Content Identifier for the result's JSON schema
-- metadata: Additional information including tool name, storage scope, and pinning status`;
+Enhanced by Pipe Protocol:
+- IPFS storage with schema generation
+- Token management and metadata${hookDocs}
+
+Output includes: CID, schema, metadata, and hook results`;
 
   return {
     ...tool,
@@ -93,7 +100,11 @@ This tool is wrapped by Pipe Protocol, providing IPFS storage capabilities. The 
         });
 
         if (config.hooks?.afterStore) {
-          await config.hooks.afterStore({ result: processedResult, cid, schemaCid });
+          processedResult = await config.hooks.afterStore({ 
+            ...processedResult, 
+            cid, 
+            schemaCid 
+          });
         }
 
         return {
