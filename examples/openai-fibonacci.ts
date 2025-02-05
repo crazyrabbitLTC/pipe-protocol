@@ -2,10 +2,28 @@ import OpenAI from 'openai';
 import type { ChatCompletionTool, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { Pipe } from '../src/pipe';
 import { Tool } from '../src/types';
+import chalk from 'chalk';
 
 // Initialize OpenAI and Pipe
 const openai = new OpenAI();
 const pipe = new Pipe();
+
+// Helper function for logging
+const log = {
+  info: (msg: string, data?: any) => {
+    console.log(chalk.blue('ℹ'), chalk.blue(msg));
+    if (data) console.log(chalk.gray(JSON.stringify(data, null, 2)));
+  },
+  success: (msg: string, data?: any) => {
+    console.log(chalk.green('✓'), chalk.green(msg));
+    if (data) console.log(chalk.gray(JSON.stringify(data, null, 2)));
+  },
+  error: (msg: string, error?: any) => {
+    console.error(chalk.red('✗'), chalk.red(msg));
+    if (error) console.error(chalk.red(error));
+  },
+  divider: () => console.log(chalk.gray('\n-------------------\n'))
+};
 
 // Fibonacci function that generates a sequence up to n
 function generateFibonacci(n: number): number[] {
@@ -34,7 +52,7 @@ const fibonacciTool: Tool = {
     required: ['n']
   },
   call: async (args: { n: number }) => {
-    console.log(`Generating ${args.n} Fibonacci numbers...`);
+    log.info(`Generating ${args.n} Fibonacci numbers...`);
     return generateFibonacci(args.n);
   }
 };
@@ -59,14 +77,17 @@ const openAITools: ChatCompletionTool[] = wrappedTools.map(tool => ({
 
 async function main() {
   try {
+    // First test: Generate Fibonacci sequence
+    log.info('Testing Fibonacci sequence generation...');
     const initialMessage: ChatCompletionMessageParam = { 
       role: 'user', 
       content: 'Can you generate the first 10 numbers of the Fibonacci sequence?' 
     };
 
-    console.log('Sending request to OpenAI...');
-    console.log('Initial message:', initialMessage);
-    console.log('Tools:', JSON.stringify(openAITools, null, 2));
+    log.info('Sending request to OpenAI...', {
+      message: initialMessage,
+      tools: openAITools
+    });
     
     // First OpenAI call to get function calling
     const completion = await openai.chat.completions.create({
@@ -75,23 +96,23 @@ async function main() {
       tools: openAITools
     });
 
-    console.log('OpenAI Response:', JSON.stringify(completion.choices[0].message, null, 2));
+    log.success('Received response from OpenAI:', completion.choices[0].message);
 
     const toolCalls = completion.choices[0].message.tool_calls;
     if (!toolCalls) {
-      console.log('No tool calls made');
+      log.error('No tool calls made');
       return;
     }
 
-    console.log('OpenAI decided to call our tool...');
+    log.info('OpenAI decided to call our tool...');
 
     // Execute the wrapped tool and get the enhanced result with IPFS storage
     const toolCall = toolCalls[0];
     const args = JSON.parse(toolCall.function.arguments);
     
-    console.log('Executing wrapped tool with args:', args);
+    log.info('Executing wrapped tool with args:', args);
     const result = await wrappedTools[0].call(args);
-    console.log('Wrapped result:', result);
+    log.success('Tool execution completed:', result);
 
     // Create the messages array with proper typing
     const messages: ChatCompletionMessageParam[] = [
@@ -104,8 +125,7 @@ async function main() {
       }
     ];
 
-    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
-    console.log('Sending result back to OpenAI...');
+    log.info('Sending result back to OpenAI...', { messages });
     
     // Final OpenAI call to get the formatted response
     const finalCompletion = await openai.chat.completions.create({
@@ -114,26 +134,47 @@ async function main() {
       tools: openAITools
     });
 
-    console.log('\nFinal Response:', finalCompletion.choices[0].message.content);
-    console.log('\nPipe Enhanced Result:');
-    console.log('- IPFS CID:', result.cid);
-    console.log('- Schema CID:', result.schemaCid);
-    console.log('- Metadata:', result.metadata);
+    log.success('Final Response:', finalCompletion.choices[0].message.content);
 
-    // Fetch and display the content from IPFS
-    console.log('\nFetching content from IPFS...');
-    const storedContent = await pipe.retrieve(result.cid);
-    console.log('Content stored in IPFS:', storedContent);
-
-    // Also fetch and display the schema if available
-    if (result.schemaCid) {
-      console.log('\nFetching schema from IPFS...');
-      const storedSchema = await pipe.retrieve(result.schemaCid);
-      console.log('Schema stored in IPFS:', storedSchema);
-    }
+    log.divider();
     
+    log.info('Pipe Enhanced Result:');
+    log.info('IPFS CID:', result.cid);
+    log.info('Schema CID:', result.schemaCid);
+    log.info('Metadata:', result.metadata);
+
+    // Test the Pipe tool
+    log.divider();
+    log.info('Testing Pipe tool...');
+    
+    const pipeTestMessage: ChatCompletionMessageParam = {
+      role: 'user',
+      content: `I have some data stored in IPFS with CID ${result.cid}. Can you retrieve it and its schema for me?`
+    };
+
+    log.info('Sending Pipe tool test request to OpenAI...');
+    
+    const pipeTestCompletion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [pipeTestMessage],
+      tools: openAITools
+    });
+
+    log.success('Pipe tool test response:', pipeTestCompletion.choices[0].message);
+
+    // Execute Pipe tool calls if any
+    const pipeToolCalls = pipeTestCompletion.choices[0].message.tool_calls;
+    if (pipeToolCalls) {
+      for (const toolCall of pipeToolCalls) {
+        const args = JSON.parse(toolCall.function.arguments);
+        log.info('Executing Pipe tool with args:', args);
+        const pipeResult = await wrappedTools[1].call(args);
+        log.success('Pipe tool execution result:', pipeResult);
+      }
+    }
+
   } catch (error) {
-    console.error('Error:', error);
+    log.error('Error during execution:', error);
   }
 }
 
