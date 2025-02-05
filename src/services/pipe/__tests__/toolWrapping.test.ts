@@ -118,7 +118,12 @@ describe('Tool Wrapping', () => {
         scope: 'private'
       });
 
-      expect(wrappedTool.description).toContain('Original tool description: ' + mockTool.description);
+      // Original description should come first
+      const descriptionLines = wrappedTool.description.split('\n');
+      expect(descriptionLines[0]).toBe(mockTool.description);
+      
+      // Pipe information should come after
+      expect(wrappedTool.description).toContain('Additional Information:');
       expect(wrappedTool.description).toContain('wrapped by Pipe Protocol');
       expect(wrappedTool.description).toContain('IPFS storage capabilities');
       expect(wrappedTool.description).toContain('cid:');
