@@ -109,6 +109,22 @@ describe('Tool Wrapping', () => {
       expect(wrappedTool1.name).toBe('mockTool');
       expect(wrappedTool2.name).toBe('anotherMockTool');
     });
+
+    it('should enhance tool description with Pipe information', () => {
+      const wrappedTool = wrapTool(mockTool, {
+        ipfsClient: mockIpfsClient,
+        storeResult: true,
+        pin: true,
+        scope: 'private'
+      });
+
+      expect(wrappedTool.description).toContain('Original tool description: ' + mockTool.description);
+      expect(wrappedTool.description).toContain('wrapped by Pipe Protocol');
+      expect(wrappedTool.description).toContain('IPFS storage capabilities');
+      expect(wrappedTool.description).toContain('cid:');
+      expect(wrappedTool.description).toContain('schemaCid:');
+      expect(wrappedTool.description).toContain('metadata:');
+    });
   });
 
   describe('IPFS Integration', () => {

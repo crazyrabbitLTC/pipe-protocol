@@ -41,8 +41,17 @@ export interface WrappedToolConfig {
 }
 
 export function wrapTool(tool: Tool, config: WrappedToolConfig): Tool {
+  const pipeDescription = `
+This tool is wrapped by Pipe Protocol, which provides IPFS storage capabilities. The tool's output will be stored in IPFS and returned with additional metadata:
+- cid: IPFS Content Identifier for the stored result
+- schemaCid: IPFS Content Identifier for the result's JSON schema
+- metadata: Additional information including tool name, storage scope, and pinning status
+
+Original tool description: ${tool.description}`;
+
   return {
     ...tool,
+    description: pipeDescription,
     call: async (args: unknown) => {
       // Call the original tool
       const result = await tool.call(args);
