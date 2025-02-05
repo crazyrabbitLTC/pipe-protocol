@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { AccessPolicy, PipeRecord, PipeBundle } from './types';
+import { AccessPolicy } from './types';
 
 const AccessPolicySchema: z.ZodSchema<AccessPolicy> = z.object({
   hiddenFromLLM: z.boolean().optional(),
   allowedTools: z.array(z.string()).optional(),
-  allowedUsers: z.array(z.string()).optional(),
+  allowedUsers: z.array(z.string()).optional()
 });
 
 export const PipeRecordSchema = z.object({

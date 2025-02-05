@@ -4,10 +4,10 @@ export interface AccessPolicy {
   allowedUsers?: string[];
 }
 
-export type Scope = "private" | "public" | "machine" | "user";
+export type Scope = 'private' | 'public' | 'machine' | 'user';
 
 export interface PipeRecord {
-  type: "data" | "schema";
+  type: 'data' | 'schema';
   cid?: string;
   content?: any;
   scope: Scope;

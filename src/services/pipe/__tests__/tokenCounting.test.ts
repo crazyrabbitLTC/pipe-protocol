@@ -19,7 +19,7 @@ import { countTokens, enforceTokenLimit } from '../tokenCounting';
 describe('Token Counting', () => {
   describe('Basic Token Counting', () => {
     it('should count tokens in strings', () => {
-      const data = "Hello world";
+      const data = 'Hello world';
       const count = countTokens(data);
       expect(count).toBeGreaterThan(0);
     });
@@ -39,10 +39,10 @@ describe('Token Counting', () => {
   describe('Complex Data Structure Handling', () => {
     it('should count tokens in objects', () => {
       const data = {
-        name: "test",
+        name: 'test',
         value: 123,
         nested: {
-          field: "nested value"
+          field: 'nested value'
         }
       };
       const count = countTokens(data);
@@ -50,7 +50,7 @@ describe('Token Counting', () => {
     });
 
     it('should count tokens in arrays', () => {
-      const data = ["first", "second", { name: "third" }];
+      const data = ['first', 'second', { name: 'third' }];
       const count = countTokens(data);
       expect(count).toBeGreaterThan(0);
     });
@@ -58,17 +58,17 @@ describe('Token Counting', () => {
 
   describe('Token Limit Enforcement', () => {
     it('should enforce token limits on strings', () => {
-      const data = "This is a long string that might exceed the token limit";
+      const data = 'This is a long string that might exceed the token limit';
       const result = enforceTokenLimit(data, 5);
       expect(countTokens(result)).toBeLessThanOrEqual(5);
     });
 
     it('should enforce token limits on objects', () => {
       const data = {
-        field1: "value1",
-        field2: "value2",
+        field1: 'value1',
+        field2: 'value2',
         field3: {
-          nested: "nested value"
+          nested: 'nested value'
         }
       };
       const result = enforceTokenLimit(data, 10);
@@ -77,15 +77,15 @@ describe('Token Counting', () => {
 
     it('should preserve structure when possible', () => {
       const data = {
-        important: "keep this",
-        lessImportant: "might trim this"
+        important: 'keep this',
+        lessImportant: 'might trim this'
       };
       const result = enforceTokenLimit(data, 5);
       expect(result).toHaveProperty('important');
     });
 
     it('should return null when limit is too small', () => {
-      const data = "Cannot be smaller";
+      const data = 'Cannot be smaller';
       const result = enforceTokenLimit(data, 1);
       expect(result).toBeNull();
     });
@@ -98,19 +98,19 @@ describe('Token Counting', () => {
     });
 
     it('should handle circular references', () => {
-      const circular: any = { name: "test" };
+      const circular: any = { name: 'test' };
       circular.self = circular;
       expect(() => countTokens(circular)).not.toThrow();
     });
 
     it('should handle mixed content types', () => {
       const data = {
-        string: "text",
+        string: 'text',
         number: 123,
         bool: true,
-        array: [1, "two", false],
+        array: [1, 'two', false],
         nested: {
-          more: "content"
+          more: 'content'
         }
       };
       expect(() => countTokens(data)).not.toThrow();

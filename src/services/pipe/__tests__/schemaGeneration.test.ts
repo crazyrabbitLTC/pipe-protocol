@@ -20,7 +20,7 @@ import { generateSchema } from '../schemaGeneration';
 describe('Schema Generation', () => {
   describe('Basic Type Inference', () => {
     it('should infer string type', () => {
-      const data = "test string";
+      const data = 'test string';
       const schema = generateSchema(data);
       expect(schema).toEqual({
         type: 'string'
@@ -55,7 +55,7 @@ describe('Schema Generation', () => {
   describe('Object Structure Handling', () => {
     it('should generate schema for simple objects', () => {
       const data = {
-        name: "test",
+        name: 'test',
         count: 1,
         isActive: true
       };
@@ -77,7 +77,7 @@ describe('Schema Generation', () => {
         user: {
           id: 1,
           details: {
-            name: "test"
+            name: 'test'
           }
         }
       };
@@ -118,8 +118,8 @@ describe('Schema Generation', () => {
 
     it('should handle arrays of objects', () => {
       const data = [
-        { id: 1, name: "first" },
-        { id: 2, name: "second" }
+        { id: 1, name: 'first' },
+        { id: 2, name: 'second' }
       ];
       
       const schema = generateSchema(data);
@@ -137,7 +137,7 @@ describe('Schema Generation', () => {
     });
 
     it('should handle mixed type arrays', () => {
-      const data = [1, "test", true];
+      const data = [1, 'test', true];
       const schema = generateSchema(data);
       expect(schema).toEqual({
         type: 'array',

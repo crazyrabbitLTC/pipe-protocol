@@ -36,33 +36,33 @@ export function countTokens(value: any, seen = new WeakSet()): number {
   }
 
   switch (typeof value) {
-    case 'string': {
-      const tokens = tokenizeString(value);
-      return tokens.length || 1; // Count empty string as 1 token
-    }
+  case 'string': {
+    const tokens = tokenizeString(value);
+    return tokens.length || 1; // Count empty string as 1 token
+  }
     
-    case 'number':
-      return 1; // Count numbers as 1 token
+  case 'number':
+    return 1; // Count numbers as 1 token
     
-    case 'boolean':
-      return 1;
+  case 'boolean':
+    return 1;
     
-    case 'object':
-      if (seen.has(value)) {
-        return 0;
-      }
-      seen.add(value);
-
-      if (Array.isArray(value)) {
-        return value.reduce((sum, item) => sum + countTokens(item, seen), 0);
-      }
-
-      return Object.entries(value).reduce((sum, [key, val]) => {
-        return sum + 1 + countTokens(val, seen); // Count each key as 1 token
-      }, 0);
-
-    default:
+  case 'object':
+    if (seen.has(value)) {
       return 0;
+    }
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      return value.reduce((sum, item) => sum + countTokens(item, seen), 0);
+    }
+
+    return Object.entries(value).reduce((sum, [_key, val]) => {
+      return sum + 1 + countTokens(val, seen); // Count each key as 1 token
+    }, 0);
+
+  default:
+    return 0;
   }
 }
 

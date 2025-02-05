@@ -43,7 +43,7 @@ export class IPFSClient {
   /**
    * Store data in IPFS
    */
-  async store(data: unknown, options?: { pin?: boolean; scope?: 'public' | 'private' }): Promise<string> {
+  async store(data: unknown, _options?: { pin?: boolean; scope?: 'public' | 'private' }): Promise<string> {
     // For testing, we'll use a simple hash of the data as the CID
     const cid = `Qm${Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 44)}`;
     this.storedData.set(cid, data);

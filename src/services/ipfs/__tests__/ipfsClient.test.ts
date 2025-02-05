@@ -135,7 +135,6 @@ describe('IpfsClient', () => {
 
       // Fetch from public scope
       const fetched = await client.fetch(published.cid, 'public');
-      const expectedPublicRecord = { ...record, scope: 'public' };
       expect(fetched?.content).toEqual(record);
       expect(fetched?.scope).toBe('public');
     });
@@ -175,7 +174,7 @@ describe('IpfsClient', () => {
       };
 
       const metricsBefore = await client.getStorageMetrics('private');
-      const published = await client.publish(record);
+      await client.publish(record);
       const metricsAfter = await client.getStorageMetrics('private');
 
       expect(metricsAfter.numObjects).toBe(metricsBefore.numObjects + 1);
@@ -216,6 +215,38 @@ describe('IpfsClient', () => {
 
       const fetched = await client.fetch(importedCid, 'private');
       expect(fetched?.content).toEqual(record);
+    });
+  });
+
+  describe('Scope Management', () => {
+    it('should handle different scopes correctly', async () => {
+      const privateRecord = {
+        type: 'data',
+        content: { private: true },
+        scope: 'private'
+      };
+
+      // Store private record
+      const publishedPrivate = await client.publish(privateRecord);
+      expect(publishedPrivate.cid).toBeDefined();
+
+      // Verify records are accessible in their respective scopes
+      const fetchedPrivate = await client.fetch(publishedPrivate.cid, 'private');
+      expect(fetchedPrivate).toEqual(privateRecord.content);
+    });
+
+    it('should prevent cross-scope access', async () => {
+      const record = {
+        type: 'data',
+        content: { test: 'data' },
+        scope: 'private'
+      };
+
+      const publishedRecord = await client.publish(record);
+      expect(publishedRecord.cid).toBeDefined();
+
+      // Attempt to access private record from public scope should fail
+      await expect(client.fetch(publishedRecord.cid, 'public')).rejects.toThrow();
     });
   });
 }); 

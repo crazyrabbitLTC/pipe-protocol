@@ -1,11 +1,5 @@
 import { PipeProtocol } from './pipe';
-import { PipeRecord, PipeBundle, Scope, Tool } from './types';
-
-interface PipeTool {
-  name: string;
-  description: string;
-  call: (method: string, args: any) => Promise<PipeRecord | PipeBundle | null | void>;
-}
+import { Tool } from './types';
 
 export function pipe(tools: Tool[]) {
   const protocol = new PipeProtocol({});

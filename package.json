@@ -1,6 +1,6 @@
 {
   "name": "pipe-protocol",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "A protocol for wrapping LLM tools with IPFS storage and encryption",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,8 @@
     "prepare": "npm run build",
     "test:llm-wrapping": "bun run scripts/test-llm-wrapping.ts",
     "test:basic": "bun run scripts/test-basic-operations.ts",
-    "test:ipfs": "bun run scripts/test-ipfs.ts"
+    "test:ipfs": "bun run scripts/test-ipfs.ts",
+    "prepublishOnly": "npm run clean && npm run build && npm run test"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^16.0.1",
@@ -64,8 +65,32 @@
     "encryption",
     "llm",
     "tools",
-    "protocol"
+    "protocol",
+    "ai",
+    "machine-learning",
+    "content-addressable-storage",
+    "schema-generation"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": {
+    "name": "Dennison Bertram",
+    "email": "dennison@dennisonbertram.com",
+    "url": "https://github.com/dennisonbertram"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dennisonbertram/pipe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dennisonbertram/pipe/issues"
+  },
+  "homepage": "https://github.com/dennisonbertram/pipe#readme",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

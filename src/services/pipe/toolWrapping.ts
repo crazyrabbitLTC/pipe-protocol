@@ -51,11 +51,18 @@ Results include: validation, statistics, storage details, and metadata` : '';
 
   const pipeDescription = `${tool.description}
 
-Enhanced by Pipe Protocol:
-- IPFS storage with schema generation
-- Token management and metadata${hookDocs}
+Additional Information:
+- Tool wrapped by Pipe Protocol
+- IPFS storage capabilities
+- Schema generation and validation
+- Token management and metadata
+${hookDocs}
 
-Output includes: CID, schema, metadata, and hook results`;
+Results include:
+- CID for stored data
+- Schema information
+- Execution metadata
+- Hook processing results`;
 
   return {
     ...tool,

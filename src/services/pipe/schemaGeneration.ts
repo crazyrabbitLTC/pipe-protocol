@@ -114,11 +114,11 @@ export function generateSchema(data: any): JSONSchema {
   const type = getType(data);
 
   switch (type) {
-    case 'array':
-      return generateArraySchema(data);
-    case 'object':
-      return generateObjectSchema(data);
-    default:
-      return { type };
+  case 'array':
+    return generateArraySchema(data);
+  case 'object':
+    return generateObjectSchema(data);
+  default:
+    return { type };
   }
 } 
