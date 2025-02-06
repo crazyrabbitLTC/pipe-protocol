@@ -20,7 +20,7 @@
 interface JSONSchema {
   type: string;
   properties?: { [key: string]: JSONSchema };
-  items?: JSONSchema | { oneOf: JSONSchema[] };
+  items?: JSONSchema | { oneOf: JSONSchema[] } | Record<string, never>;
   required?: string[];
   oneOf?: JSONSchema[];
 }
@@ -58,7 +58,7 @@ function generateArraySchema(arr: any[]): JSONSchema {
   if (arr.length === 0) {
     return {
       type: 'array',
-      items: { type: 'null' }
+      items: {}
     };
   }
 

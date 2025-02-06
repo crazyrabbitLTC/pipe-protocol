@@ -6,5 +6,13 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     exclude: ['node_modules', 'dist'],
+    silent: true,
+    reporters: ['basic'],
+    outputFile: {
+      json: './test-results.json'
+    },
+    coverage: {
+      reporter: ['text-summary']
+    }
   },
 }) 

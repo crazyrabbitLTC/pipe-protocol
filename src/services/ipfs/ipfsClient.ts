@@ -36,7 +36,7 @@ export interface IPFSStoreOptions {
 
 export class IPFSClient {
   private config: IPFSClientConfig;
-  private storedData: Map<string, unknown> = new Map();
+  private storedData: Map<string, PipeRecord> = new Map();
   private pinnedCids: Map<string, Set<string>> = new Map(); // scope -> Set<cid>
 
   constructor(config: IPFSClientConfig) {
@@ -56,11 +56,15 @@ export class IPFSClient {
     const record: PipeRecord = {
       type: 'data',
       content: data,
-      scope
+      scope: scope as Scope,
+      pinned: options?.pin ?? this.config.pin,
+      accessPolicy: { hiddenFromLLM: false },
+      timestamp: new Date().toISOString()
     };
     
     // For testing, we'll use a simple hash of the data as the CID
     const cid = `Qm${Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 44)}`;
+    console.log('Storing record:', { cid, record });
     this.storedData.set(cid, record);
     
     const shouldPin = options?.pin ?? this.config.pin;
@@ -76,6 +80,7 @@ export class IPFSClient {
    */
   async fetch(cid: string, scope: string): Promise<unknown | null> {
     const record = this.storedData.get(cid) as PipeRecord | undefined;
+    console.log('Fetching record:', { cid, scope, record });
     if (!record) {
       return null;
     }
@@ -157,18 +162,30 @@ export class IPFSClient {
    */
   async replicate(cid: string, fromScope: string, toScope: string): Promise<string> {
     const record = this.storedData.get(cid) as PipeRecord | undefined;
+    console.log('Replicating record:', { cid, fromScope, toScope, record });
     if (!record) {
       throw new Error(`Data not found for CID: ${cid}`);
+    }
+    
+    // Verify the record is in the fromScope
+    if (record.scope !== fromScope) {
+      throw new Error(`Record with CID ${cid} is not in scope ${fromScope}`);
     }
     
     // Create a new record with the target scope
     const newRecord: PipeRecord = {
       ...record,
-      scope: toScope as Scope
+      scope: toScope as Scope,
+      timestamp: new Date().toISOString()
     };
     
-    // Generate a new CID for the replicated record
-    const newCid = `Qm${Buffer.from(JSON.stringify(newRecord.content)).toString('base64').substring(0, 44)}`;
+    // Generate a unique CID for the replicated record by including scope and timestamp
+    const newCid = `Qm${Buffer.from(JSON.stringify({
+      content: newRecord.content,
+      scope: toScope,
+      timestamp: newRecord.timestamp
+    })).toString('base64').substring(0, 44)}`;
+    console.log('Created new record:', { newCid, newRecord });
     
     // Store the record with the new CID
     this.storedData.set(newCid, newRecord);

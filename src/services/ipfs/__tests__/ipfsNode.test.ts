@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { IpfsNode } from '../ipfsNode';
 import { createHelia } from 'helia';
 import { sha256 } from 'multiformats/hashes/sha2';
+import { CID } from 'multiformats';
 
 // Mock helia and its dependencies
 vi.mock('helia', () => ({
@@ -48,8 +49,28 @@ describe('IpfsNode', () => {
     };
 
     // Create mock helia instance
+    const mockCid = {
+      toString: () => 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+      toV1: () => mockCid
+    };
+
+    const pinnedCids = new Set<any>();
+
     const mockHelia: any = {
       blockstore: mockBlockstore,
+      pins: {
+        add: vi.fn().mockImplementation(async (cid: any) => {
+          pinnedCids.add(cid);
+        }),
+        rm: vi.fn().mockImplementation(async (cid: any) => {
+          pinnedCids.delete(cid);
+        }),
+        ls: vi.fn().mockImplementation(async function* () {
+          for (const cid of pinnedCids) {
+            yield cid;
+          }
+        })
+      },
       stop: vi.fn()
     };
 
@@ -60,9 +81,13 @@ describe('IpfsNode', () => {
     vi.mocked(sha256.digest).mockResolvedValue({
       code: sha256.code,
       size: 32,
-      digest: new Uint8Array(32).fill(1), // 32 bytes of 1s
-      bytes: new Uint8Array(34).fill(1) // code (2 bytes) + size (32 bytes)
+      digest: new Uint8Array(32),
+      bytes: new Uint8Array(32)
     });
+
+    // Mock CID behavior
+    vi.spyOn(CID, 'createV1').mockReturnValue(mockCid as any);
+    vi.spyOn(CID, 'parse').mockReturnValue(mockCid as any);
 
     node = new IpfsNode({
       storage: 'memory'
@@ -177,16 +202,59 @@ describe('IpfsNode', () => {
     });
 
     it('should handle cleanup after stop', async () => {
+      const node = new IpfsNode({ storage: 'memory' });
+      
+      // Setup mocks for initialization
+      const mockHelia = {
+        blockstore: mockBlockstore,
+        pins: {
+          add: vi.fn(),
+          rm: vi.fn(),
+          ls: vi.fn()
+        },
+        stop: vi.fn(),
+        libp2p: {},
+        datastore: {},
+        logger: console,
+        routing: {},
+        start: vi.fn(),
+        isStarted: vi.fn()
+      } as any; // Type assertion needed for complex Helia type
+      
+      vi.mocked(createHelia).mockResolvedValueOnce(mockHelia);
+      
+      // Initialize the node
       await node.init();
-      const data = new TextEncoder().encode('test data');
       
-      // Mock the blockstore operations for add
+      // Setup mock for successful add operation
       mockBlockstore.put.mockResolvedValueOnce(undefined);
+      const mockDigest = new Uint8Array(32).fill(1); // Fill with some data instead of zeros
+      vi.mocked(sha256.digest).mockResolvedValueOnce({
+        code: sha256.code,
+        size: 32,
+        digest: mockDigest,
+        bytes: mockDigest
+      });
       
+      // Mock CID behavior
+      const mockCid = {
+        toString: () => 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+        toV1: () => mockCid
+      };
+      vi.spyOn(CID, 'createV1').mockReturnValue(mockCid as any);
+      vi.spyOn(CID, 'parse').mockReturnValue(mockCid as any);
+      
+      // Add some data
+      const data = new TextEncoder().encode('test data');
       const cid = await node.add(data);
       
+      // Stop the node
       await node.stop();
+      
+      // Verify that operations after stop throw the correct error
       await expect(node.get(cid)).rejects.toThrow('IPFS node not initialized');
+      await expect(node.add(data)).rejects.toThrow('IPFS node not initialized');
+      await expect(node.pin(cid)).rejects.toThrow('IPFS node not initialized');
     });
   });
 }); 
