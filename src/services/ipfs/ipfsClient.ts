@@ -61,7 +61,6 @@ export class IPFSClient {
     
     // For testing, we'll use a simple hash of the data as the CID
     const cid = `Qm${Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 44)}`;
-    console.log('Storing record:', { cid, record });
     this.storedData.set(cid, record);
     
     const shouldPin = options?.pin ?? this.config.pin;
@@ -77,7 +76,6 @@ export class IPFSClient {
    */
   async fetch(cid: string, scope: string): Promise<unknown | null> {
     const record = this.storedData.get(cid) as PipeRecord | undefined;
-    console.log('Fetching record:', { cid, scope, record });
     if (!record) {
       return null;
     }
@@ -159,7 +157,6 @@ export class IPFSClient {
    */
   async replicate(cid: string, fromScope: string, toScope: string): Promise<string> {
     const record = this.storedData.get(cid) as PipeRecord | undefined;
-    console.log('Replicating record:', { cid, fromScope, toScope, record });
     if (!record) {
       throw new Error(`Data not found for CID: ${cid}`);
     }
@@ -172,7 +169,6 @@ export class IPFSClient {
     
     // Generate a new CID for the replicated record
     const newCid = `Qm${Buffer.from(JSON.stringify(newRecord.content)).toString('base64').substring(0, 44)}`;
-    console.log('Created new record:', { newCid, newRecord });
     
     // Store the record with the new CID
     this.storedData.set(newCid, newRecord);
