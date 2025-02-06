@@ -93,10 +93,10 @@ async function testBundles() {
         },
         scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: true },
-        encryption: { 
+        encryption: {
           enabled: true,
-          method: 'AES-GCM',
-          keyRef: 'bundleKey1'
+          algorithm: 'AES-GCM',
+          key: 'test-key'
         },
         pinned: true
       },
@@ -108,10 +108,10 @@ async function testBundles() {
         },
         scope: 'private' as const,
         accessPolicy: { hiddenFromLLM: true },
-        encryption: { 
+        encryption: {
           enabled: true,
-          method: 'AES-GCM',
-          keyRef: 'bundleKey1'
+          algorithm: 'AES-GCM',
+          key: 'test-key'
         },
         pinned: true
       },

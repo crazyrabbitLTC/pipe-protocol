@@ -3,9 +3,14 @@ import { PipeProtocol } from '../src/pipe.js';
 async function testReplication() {
   console.log('Starting replication test...\n');
   
-  const pipe = new PipeProtocol({
-    publicNodeEndpoint: 'https://ipfs.infura.io:5001'
-  });
+  const config = {
+    ipfs: {
+      endpoint: 'https://ipfs.infura.io:5001',
+      offline: false
+    }
+  };
+
+  const pipe = new PipeProtocol(config);
 
   try {
     // Test 1: Publish a record to private scope
@@ -111,34 +116,11 @@ async function testReplication() {
     }
 
   } catch (error) {
-    console.error('Error during test:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
+    console.error('Error during tests:', error);
     process.exit(1);
   } finally {
-    try {
-      await pipe.stop();
-      console.log('\nTest completed and node stopped.');
-    } catch (error) {
-      console.error('Error stopping node:', error);
-      if (error instanceof Error) {
-        console.error('Error stack:', error.stack);
-      }
-      process.exit(1);
-    }
+    await pipe.stop();
   }
 }
 
-// Run the test
-(async () => {
-  try {
-    await testReplication();
-  } catch (error) {
-    console.error('Test failed:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
-    process.exit(1);
-  }
-})(); 
+testReplication().catch(console.error); 

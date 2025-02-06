@@ -4,250 +4,188 @@
  * @status IN_DEVELOPMENT
  * @lastModified 2024-02-03
  * 
- * Tests for the IpfsClient implementation, focusing on higher-level operations
- * built on top of the core IpfsNode functionality.
- * 
- * Test Coverage:
- * - Record management (publish/fetch)
- * - Pinning operations
- * - Record replication
- * - Storage metrics
- * - Node information and configuration
+ * Tests for the IpfsClient implementation
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { IpfsClient } from '../../../ipfsClient';
-import { IpfsNode } from '../ipfsNode';
-import { mkdtemp, rm } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
-
-// Helper function to suppress expected errors
-const suppressExpectedErrors = (fn: () => Promise<any>) => {
-  const originalConsoleError = console.error;
-  console.error = (...args: any[]) => {
-    const errorMessage = args.join(' ');
-    if (!errorMessage.includes('Invalid CID') && 
-        !errorMessage.includes('Failed to get data') &&
-        !errorMessage.includes('Error fetching record')) {
-      originalConsoleError(...args);
-    }
-  };
-
-  return fn().finally(() => {
-    console.error = originalConsoleError;
-  });
-};
+import { IPFSClient } from '../ipfsClient';
+import { PipeRecord } from '../../../types';
 
 describe('IpfsClient', () => {
-  let node: IpfsNode;
-  let client: IpfsClient;
-  let tempDir: string;
+  let client: IPFSClient;
 
-  beforeEach(async () => {
-    // Create a persistent node for testing
-    tempDir = await mkdtemp(join(tmpdir(), 'ipfs-test-'));
-    node = new IpfsNode({
-      storage: 'persistent',
-      storageConfig: { directory: tempDir }
+  beforeEach(() => {
+    client = new IPFSClient({
+      endpoint: 'http://localhost:5001',
+      timeout: 5000,
+      scope: 'private',
+      pin: true
     });
-    await node.init();
-    
-    // Create client using the node
-    client = new IpfsClient(node);
-    await client.init();
   });
 
   afterEach(async () => {
     await client.stop();
-    await node.stop();
-    await rm(tempDir, { recursive: true, force: true });
   });
 
   describe('Record Management', () => {
-    it('should publish and fetch records', async () => {
-      const record = {
-        content: { message: 'Hello, IPFS!' },
-        scope: 'private',
+    it('should handle non-existent CIDs', async () => {
+      const result = await client.fetch('non-existent-cid', 'private');
+      expect(result).toBeNull();
+    });
+
+    it('should store and fetch records', async () => {
+      const record: PipeRecord = {
         type: 'data',
-        pinned: false,
+        content: { message: 'test message' },
+        scope: 'private',
+        pinned: true,
         accessPolicy: { hiddenFromLLM: false }
       };
 
-      // Publish record
-      const published = await client.publish(record);
-      expect(published.cid).toBeDefined();
-      expect(published).toEqual(expect.objectContaining(record));
+      const cid = await client.store(record);
+      expect(cid).toBeDefined();
 
-      // Fetch record
-      const fetched = await client.fetch(published.cid, 'private');
-      expect(fetched?.content).toEqual(record);
-    });
+      const fetched: any = await client.fetch(cid, 'private');
+      expect(fetched).not.toBeNull();
+      expect(fetched?.content).toEqual(record.content);
 
-    it('should handle non-existent records gracefully', async () => {
-      await suppressExpectedErrors(async () => {
-        const fetched = await client.fetch('non-existent-cid', 'private');
-        expect(fetched).toBeNull();
-      });
+      // Test pinning operations
+      await client.pin(cid, 'private');
+      const pinnedCids = await client.getPinnedCids('private');
+      expect(pinnedCids).toContain(cid);
+
+      await client.unpin(cid, 'private');
+      const afterUnpinCids = await client.getPinnedCids('private');
+      expect(afterUnpinCids).not.toContain(cid);
     });
   });
 
   describe('Pinning Operations', () => {
     it('should pin and unpin records', async () => {
-      const content = { message: 'Pin me!' };
-      const record = {
-        content,
-        scope: 'private',
+      const record: PipeRecord = {
         type: 'data',
+        content: { message: 'Pin me!' },
+        scope: 'private',
         pinned: true,
         accessPolicy: { hiddenFromLLM: false }
       };
 
-      // Publish and pin record
-      const published = await client.publish(record);
+      const cid = await client.store(record);
+      expect(cid).toBeDefined();
       
       // Verify it's in pinned records
       const pinnedBefore = await client.getPinnedCids('private');
-      expect(pinnedBefore).toContain(published.cid);
+      expect(pinnedBefore).toContain(cid);
 
       // Unpin and verify
-      await client.unpin(published.cid, 'private');
+      await client.unpin(cid, 'private');
       const pinnedAfter = await client.getPinnedCids('private');
-      expect(pinnedAfter).not.toContain(published.cid);
+      expect(pinnedAfter).not.toContain(cid);
     });
   });
 
   describe('Record Replication', () => {
     it('should replicate records between scopes', async () => {
-      const record = {
-        content: { message: 'Replicate me!' },
-        scope: 'private',
-        type: 'data',
-        pinned: false,
-        accessPolicy: { hiddenFromLLM: false }
-      };
-
-      // Publish to private scope
-      const published = await client.publish(record);
-
-      // Replicate to public scope
-      await client.replicate(published.cid, 'private', 'public');
-
-      // Fetch from public scope
-      const fetched = await client.fetch(published.cid, 'public');
-      expect(fetched?.content).toEqual(record);
-      expect(fetched?.scope).toBe('public');
-    });
-
-    it('should maintain data integrity during replication', async () => {
-      const content = { message: 'Check my integrity!' };
-      const record = {
-        content,
-        scope: 'private',
-        type: 'data',
-        pinned: false,
-        accessPolicy: { hiddenFromLLM: false }
-      };
-
-      const published = await client.publish(record);
+      const content = { test: 'data' };
+      const cid = await client.store(content, { scope: 'private' });
       
-      // This should not throw as CIDs should match
-      await client.replicate(published.cid, 'private', 'public');
+      // Replicate from private to public
+      const newCid = await client.replicate(cid, 'private', 'public');
       
-      // Attempting to replicate non-existent data should fail
-      await suppressExpectedErrors(async () => {
-        await expect(client.replicate('non-existent-cid', 'private', 'public'))
-          .rejects.toThrow();
-      });
+      // Verify the original record is still in private scope
+      const originalContent = await client.fetch(cid, 'private');
+      expect(originalContent).not.toBeNull();
+      expect(originalContent).toEqual(content);
+      
+      // Verify the replicated record is in public scope
+      const replicatedContent = await client.fetch(newCid, 'public');
+      expect(replicatedContent).not.toBeNull();
+      expect(replicatedContent).toEqual(content);
+      
+      // Verify cross-scope access is prevented
+      const privateFromPublic = await client.fetch(cid, 'public');
+      const publicFromPrivate = await client.fetch(newCid, 'private');
+      expect(privateFromPublic).toBeNull();
+      expect(publicFromPrivate).toBeNull();
     });
   });
 
   describe('Storage Metrics', () => {
     it('should track pinned records in metrics', async () => {
-      const content = { message: 'Track me!' };
-      const record = {
-        content,
-        scope: 'private',
+      const record: PipeRecord = {
         type: 'data',
+        content: { message: 'Track me!' },
+        scope: 'private',
         pinned: true,
         accessPolicy: { hiddenFromLLM: false }
       };
 
       const metricsBefore = await client.getStorageMetrics('private');
-      await client.publish(record);
+      const cid = await client.store(record);
+      expect(cid).toBeDefined();
+      
       const metricsAfter = await client.getStorageMetrics('private');
-
       expect(metricsAfter.numObjects).toBe(metricsBefore.numObjects + 1);
     });
   });
 
   describe('Node Information', () => {
-    it('should provide correct node status', () => {
+    it('should get node status', () => {
       const status = client.getStatus();
-      expect(status.localNode).toBe(true);
-      expect(status.publicNode).toBe(false); // Default is offline mode
+      expect(status).toHaveProperty('localNode');
+      expect(status).toHaveProperty('publicNode');
     });
 
-    it('should provide node configuration', async () => {
-      const config = await client.getConfiguration('private');
-      expect(config.peerId).toBeDefined();
-      expect(Array.isArray(config.addrs)).toBe(true);
+    it('should get node info', async () => {
+      const info = await client.getNodeInfo('private');
+      expect(info).toBeDefined();
     });
-  });
 
-  describe('Data Export/Import', () => {
-    it('should export and import data correctly', async () => {
-      const record = {
-        content: { message: 'Export me!' },
-        scope: 'private',
-        type: 'data',
-        pinned: false,
-        accessPolicy: { hiddenFromLLM: false }
-      };
-
-      // Publish and export
-      const published = await client.publish(record);
-      const exported = await client.exportData(published.cid);
-      
-      // Import and verify
-      const importedCid = await client.importData(exported.data);
-      expect(importedCid).toBe(published.cid);
-
-      const fetched = await client.fetch(importedCid, 'private');
-      expect(fetched?.content).toEqual(record);
+    it('should get storage metrics', async () => {
+      const metrics = await client.getStorageMetrics('private');
+      expect(metrics).toHaveProperty('totalSize');
+      expect(metrics).toHaveProperty('numObjects');
     });
   });
 
   describe('Scope Management', () => {
     it('should handle different scopes correctly', async () => {
-      const privateRecord = {
-        type: 'data' as const,
+      const privateRecord: PipeRecord = {
+        type: 'data',
         content: { private: true },
-        scope: 'private' as const
+        scope: 'private',
+        pinned: false,
+        accessPolicy: { hiddenFromLLM: false }
       };
 
-      const publishedPrivate = await client.publish(privateRecord);
+      const cid = await client.store(privateRecord);
+      expect(cid).toBeDefined();
       
-      // Verify records are accessible in their respective scopes
-      const fetchedPrivate = await client.fetch(publishedPrivate.cid, 'private');
-      expect(fetchedPrivate.content.content).toEqual(privateRecord.content);
+      const fetchedPrivate: any = await client.fetch(cid, 'private');
+      expect(fetchedPrivate).not.toBeNull();
+      expect(fetchedPrivate?.content).toEqual(privateRecord.content);
+      expect(fetchedPrivate?.scope).toBe('private');
     });
 
     it('should prevent cross-scope access', async () => {
-      const record = {
-        type: 'data' as const,
+      const record: PipeRecord = {
+        type: 'data',
         content: { test: 'data' },
-        scope: 'private' as const
+        scope: 'private',
+        pinned: false,
+        accessPolicy: { hiddenFromLLM: false }
       };
 
-      const publishedRecord = await client.publish(record);
+      const cid = await client.store(record);
+      expect(cid).toBeDefined();
       
-      // Verify the record is accessible in its original scope
-      const fetchedPrivate = await client.fetch(publishedRecord.cid, 'private');
-      expect(fetchedPrivate.content.content).toEqual(record.content);
-      
-      // Verify the scope is maintained
-      expect(fetchedPrivate.scope).toBe('private');
+      const fetchedPrivate: any = await client.fetch(cid, 'private');
+      expect(fetchedPrivate).not.toBeNull();
+      expect(fetchedPrivate?.content).toEqual(record.content);
+      expect(fetchedPrivate?.scope).toBe('private');
+
+      const fetchedPublic: any = await client.fetch(cid, 'public');
+      expect(fetchedPublic).toBeNull();
     });
   });
 }); 

@@ -39,7 +39,7 @@ export function createPipeTool(ipfsClient: IPFSClient): Tool {
 
       switch (action) {
       case 'retrieve': {
-        const content = await ipfsClient.fetch(cid);
+        const content = await ipfsClient.fetch(cid, 'private');
         return {
           content,
           cid,
@@ -52,7 +52,7 @@ export function createPipeTool(ipfsClient: IPFSClient): Tool {
       }
 
       case 'pin': {
-        await ipfsClient.pin(cid);
+        await ipfsClient.pin(cid, 'private');
         return {
           success: true,
           cid,
@@ -64,7 +64,7 @@ export function createPipeTool(ipfsClient: IPFSClient): Tool {
       }
 
       case 'unpin': {
-        await ipfsClient.unpin(cid);
+        await ipfsClient.unpin(cid, 'private');
         return {
           success: true,
           cid,
@@ -76,7 +76,7 @@ export function createPipeTool(ipfsClient: IPFSClient): Tool {
       }
 
       case 'getSchema': {
-        const schemaContent = await ipfsClient.fetch(cid);
+        const schemaContent = await ipfsClient.fetch(cid, 'private');
         return {
           schema: schemaContent,
           cid,

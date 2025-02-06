@@ -179,7 +179,8 @@ export class Pipe {
    * Fetch a record from IPFS
    */
   public async fetchRecord(cid: string, scope: Scope): Promise<PipeRecord | null> {
-    return this.ipfsClient.fetch(cid, scope);
+    const result = await this.ipfsClient.fetch(cid, scope);
+    return result as PipeRecord | null;
   }
 
   /**

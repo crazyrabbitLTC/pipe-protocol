@@ -1,10 +1,10 @@
-import { PipeProtocol } from '../src/pipe.js';
-import type { Tool } from '../src/types.js';
+import { Pipe } from '../src/pipe.js';
+import type { Tool } from '../src/types/tool.js';
 
 async function testBasicOperations() {
   console.log('Starting basic operations test...\n');
 
-  const pipe = new PipeProtocol({});
+  const pipe = new Pipe({});
 
   try {
     // Test 1: Publish a record
@@ -46,7 +46,7 @@ async function testBasicOperations() {
 
     // Test 7: Get node info
     console.log('\nTest 7: Getting node info...');
-    const info = pipe.getNodeInfo('private');
+    const info = await pipe.getNodeInfo('private');
     console.log('Node info:', info);
 
     // Test 8: Get storage metrics
@@ -57,7 +57,7 @@ async function testBasicOperations() {
     // Test 9: Test tool wrapping
     console.log('\nTest 9: Testing tool wrapping...');
     const mockTool: Tool = {
-      name: 'testTool',
+      name: 'test',
       description: 'A test tool',
       parameters: {
         type: 'object',
@@ -69,12 +69,8 @@ async function testBasicOperations() {
     };
 
     const wrappedTools = pipe.wrap([mockTool]);
-    console.log('Tool wrapped successfully');
-
-    // Test 10: Execute wrapped tool
-    console.log('\nTest 10: Executing wrapped tool...');
-    const toolResult = await wrappedTools[0].execute({ input: 'test' });
-    console.log('Tool execution result:', toolResult);
+    const result = await wrappedTools[0].call({ input: 'test' });
+    console.log('Tool execution result:', result);
 
     console.log('\nAll tests completed successfully!');
   } catch (error) {

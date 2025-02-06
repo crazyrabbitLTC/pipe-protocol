@@ -58,6 +58,8 @@ export class IpfsClient {
   async fetch(cid: string, scope: Scope): Promise<PipeRecord | null> {
     try {
       const data = await this.node.get(cid);
+      if (!data) return null;
+      
       const content = JSON.parse(this.decoder.decode(data));
       return {
         cid,
@@ -75,7 +77,9 @@ export class IpfsClient {
   async pin(cid: string, _scope: Scope): Promise<void> {
     try {
       // Verify the data exists by trying to get it
-      await this.node.get(cid);
+      const data = await this.node.get(cid);
+      if (!data) throw new Error('Data not found');
+      await this.node.pin(cid);
       this.pinnedCids.add(cid);
     } catch (error) {
       console.error('Error pinning data:', error);
@@ -85,6 +89,7 @@ export class IpfsClient {
 
   async unpin(cid: string, _scope: Scope): Promise<void> {
     try {
+      await this.node.unpin(cid);
       this.pinnedCids.delete(cid);
     } catch (error) {
       console.error('Error unpinning data:', error);
@@ -96,6 +101,8 @@ export class IpfsClient {
     try {
       // Get the data from the source scope
       const data = await this.node.get(cid);
+      if (!data) throw new Error('Data not found');
+      
       // Add it back to create a new copy
       const newCid = await this.node.add(data);
       
@@ -119,17 +126,16 @@ export class IpfsClient {
     };
   }
 
-  getNodeInfo(_scope: Scope) {
-    return this.node.getPeerId().then(peerId => ({
+  async getNodeInfo(_scope: Scope) {
+    const peerId = await this.node.getPeerId();
+    return {
       peerId: peerId?.toString() || 'unknown'
-    }));
+    };
   }
 
   async getConfiguration(_scope: Scope) {
-    const [peerId, addrs] = await Promise.all([
-      this.node.getPeerId(),
-      this.node.getMultiaddrs()
-    ]);
+    const peerId = await this.node.getPeerId();
+    const addrs = this.node.getMultiaddrs();
     
     return {
       peerId: peerId?.toString() || 'unknown',
@@ -150,6 +156,7 @@ export class IpfsClient {
 
   async exportData(cid: string): Promise<{ data: Uint8Array; cid: string }> {
     const data = await this.node.get(cid);
+    if (!data) throw new Error('Data not found');
     return { data, cid };
   }
 

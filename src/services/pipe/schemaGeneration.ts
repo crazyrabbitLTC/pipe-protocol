@@ -58,7 +58,7 @@ function generateArraySchema(arr: any[]): JSONSchema {
   if (arr.length === 0) {
     return {
       type: 'array',
-      items: {}
+      items: { type: 'null' }
     };
   }
 

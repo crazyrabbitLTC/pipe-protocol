@@ -1,19 +1,25 @@
 import { IpfsClient } from '../src/ipfsClient.js';
-import { PipeRecord, Scope } from '../src/types.js';
+import { PipeRecord } from '../src/types.js';
+import { IpfsNode } from '../src/services/ipfs/ipfsNode.js';
 
-async function testIpfsClient() {
-  console.log('Starting IPFS Client tests...\n');
-  const client = new IpfsClient();
+async function testIpfs() {
+  console.log('Testing IPFS functionality...');
+
+  const node = new IpfsNode({
+    storage: 'memory',
+    storageConfig: {
+      directory: '/tmp/ipfs-test'
+    }
+  });
+  
+  await node.init();
+  const client = new IpfsClient(node);
 
   try {
-    // Test 1: Node Initialization and Status
-    console.log('Test 1: Testing node initialization and status...');
+    console.log('\nTest 1: Checking node status...');
     const status = await client.getStatus();
-    console.log('Node status:', status);
     console.assert(status.localNode === true, 'Local node should be initialized');
-    console.assert(status.machineNode === true, 'Machine node should be initialized');
-    console.assert(status.userNode === true, 'User node should be initialized');
-    console.log('✓ Node initialization test passed\n');
+    console.assert(status.publicNode === true, 'Public node should be initialized');
 
     // Test 2: Publishing and Fetching
     console.log('Test 2: Testing publishing and fetching...');
@@ -80,7 +86,8 @@ async function testIpfsClient() {
     console.log('Test 5: Testing storage metrics and configuration...');
     const metrics = await client.getStorageMetrics('private');
     console.log('Storage metrics:', metrics);
-    console.assert(typeof metrics.repoSize === 'number', 'Storage metrics should include repo size');
+    console.assert(typeof metrics.totalSize === 'number', 'Storage metrics should include total size');
+    console.assert(typeof metrics.numObjects === 'number', 'Storage metrics should include number of objects');
 
     const config = await client.getConfiguration('private');
     console.log('Node configuration:', config);
@@ -100,7 +107,7 @@ async function testIpfsClient() {
   }
 }
 
-testIpfsClient().catch(error => {
+testIpfs().catch(error => {
   console.error('Test suite failed:', error);
   process.exit(1);
 }); 

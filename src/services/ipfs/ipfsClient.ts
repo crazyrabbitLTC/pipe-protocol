@@ -20,7 +20,7 @@
  * - Mock implementation for testing
  */
 
-import { PipeRecord } from '../../types';
+import { PipeRecord, Scope } from '../../types';
 
 export interface IPFSClientConfig {
   endpoint: string;
@@ -52,13 +52,21 @@ export class IPFSClient {
    * Store data in IPFS
    */
   async store(data: unknown, options?: { pin?: boolean; scope?: 'public' | 'private' }): Promise<string> {
+    const scope = options?.scope || this.config.scope;
+    const record: PipeRecord = {
+      type: 'data',
+      content: data,
+      scope
+    };
+    
     // For testing, we'll use a simple hash of the data as the CID
     const cid = `Qm${Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 44)}`;
-    this.storedData.set(cid, data);
+    console.log('Storing record:', { cid, record });
+    this.storedData.set(cid, record);
     
-    if (options?.pin) {
-      const scope = options.scope || this.config.scope;
-      this.pinnedCids.get(scope)?.add(cid);
+    const shouldPin = options?.pin ?? this.config.pin;
+    if (shouldPin) {
+      await this.pin(cid, scope);
     }
     
     return cid;
@@ -67,12 +75,13 @@ export class IPFSClient {
   /**
    * Fetch data from IPFS
    */
-  async fetch(cid: string, scope: string): Promise<PipeRecord | null> {
-    const data = this.storedData.get(cid);
-    if (!data) {
+  async fetch(cid: string, scope: string): Promise<unknown | null> {
+    const record = this.storedData.get(cid) as PipeRecord | undefined;
+    console.log('Fetching record:', { cid, scope, record });
+    if (!record) {
       return null;
     }
-    return data as PipeRecord;
+    return record.scope === scope ? record.content : null;
   }
 
   /**
@@ -148,12 +157,32 @@ export class IPFSClient {
   /**
    * Replicate data from one scope to another
    */
-  async replicate(cid: string, fromScope: string, toScope: string): Promise<void> {
-    if (!this.storedData.has(cid)) {
+  async replicate(cid: string, fromScope: string, toScope: string): Promise<string> {
+    const record = this.storedData.get(cid) as PipeRecord | undefined;
+    console.log('Replicating record:', { cid, fromScope, toScope, record });
+    if (!record) {
       throw new Error(`Data not found for CID: ${cid}`);
     }
-    // In a real implementation, this would replicate the data
-    this.pinnedCids.get(toScope)?.add(cid);
+    
+    // Create a new record with the target scope
+    const newRecord: PipeRecord = {
+      ...record,
+      scope: toScope as Scope
+    };
+    
+    // Generate a new CID for the replicated record
+    const newCid = `Qm${Buffer.from(JSON.stringify(newRecord.content)).toString('base64').substring(0, 44)}`;
+    console.log('Created new record:', { newCid, newRecord });
+    
+    // Store the record with the new CID
+    this.storedData.set(newCid, newRecord);
+    
+    // Pin the new record if the original was pinned
+    if (this.pinnedCids.get(fromScope)?.has(cid)) {
+      await this.pin(newCid, toScope);
+    }
+    
+    return newCid;
   }
 
   /**

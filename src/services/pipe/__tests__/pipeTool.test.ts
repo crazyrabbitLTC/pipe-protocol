@@ -7,27 +7,49 @@
  * Tests for Pipe tool functionality
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createPipeTool } from '../pipeTool';
+import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { IPFSClient } from '../../ipfs/ipfsClient';
+import { createPipeTool } from '../pipeTool';
+import { PipeRecord } from '../../../types';
 
 describe('Pipe Tool', () => {
-  let mockIpfsClient: jest.Mocked<IPFSClient>;
+  let mockIpfsClient: IPFSClient;
 
   beforeEach(() => {
     mockIpfsClient = {
+      config: {
+        endpoint: 'http://localhost:5001',
+        timeout: 5000,
+        scope: 'private',
+        pin: true
+      },
+      storedData: new Map(),
+      pinnedCids: new Map<string, Set<string>>(),
       fetch: vi.fn(),
       pin: vi.fn(),
       unpin: vi.fn(),
-      store: vi.fn(),
       replicate: vi.fn(),
       getPinnedCids: vi.fn(),
       getStatus: vi.fn(),
       getNodeInfo: vi.fn(),
       getStorageMetrics: vi.fn(),
       getConfiguration: vi.fn(),
-      stop: vi.fn()
-    } as unknown as jest.Mocked<IPFSClient>;
+      stop: vi.fn(),
+      store: vi.fn()
+    } as unknown as IPFSClient;
+
+    // Setup default mock implementations
+    const defaultRecord: PipeRecord = {
+      type: 'data',
+      content: { test: 'data' },
+      scope: 'private',
+      pinned: false,
+      accessPolicy: { hiddenFromLLM: false }
+    };
+
+    (mockIpfsClient.fetch as Mock).mockResolvedValue(defaultRecord);
+    (mockIpfsClient.pin as Mock).mockResolvedValue(undefined);
+    (mockIpfsClient.unpin as Mock).mockResolvedValue(undefined);
   });
 
   it('should create a tool with correct interface', () => {
@@ -43,16 +65,23 @@ describe('Pipe Tool', () => {
   });
 
   it('should retrieve content', async () => {
-    const pipeTool = createPipeTool(mockIpfsClient);
-    const mockContent = { data: 'test' };
-    mockIpfsClient.fetch.mockResolvedValue(mockContent);
+    const mockContent: PipeRecord = {
+      type: 'data',
+      content: { test: 'custom data' },
+      scope: 'private',
+      pinned: false,
+      accessPolicy: { hiddenFromLLM: false }
+    };
 
+    (mockIpfsClient.fetch as Mock).mockResolvedValue(mockContent);
+
+    const pipeTool = createPipeTool(mockIpfsClient);
     const result = await pipeTool.call({
       action: 'retrieve',
       cid: 'testCid'
     });
 
-    expect(mockIpfsClient.fetch).toHaveBeenCalledWith('testCid');
+    expect(mockIpfsClient.fetch).toHaveBeenCalledWith('testCid', 'private');
     expect(result.content).toEqual(mockContent);
     expect(result.cid).toBe('testCid');
     expect(result.metadata.action).toBe('retrieve');
@@ -61,14 +90,14 @@ describe('Pipe Tool', () => {
 
   it('should pin content', async () => {
     const pipeTool = createPipeTool(mockIpfsClient);
-    mockIpfsClient.pin.mockResolvedValue(undefined);
+    (mockIpfsClient.pin as Mock).mockResolvedValue(undefined);
 
     const result = await pipeTool.call({
       action: 'pin',
       cid: 'testCid'
     });
 
-    expect(mockIpfsClient.pin).toHaveBeenCalledWith('testCid');
+    expect(mockIpfsClient.pin).toHaveBeenCalledWith('testCid', 'private');
     expect(result.success).toBe(true);
     expect(result.cid).toBe('testCid');
     expect(result.metadata.action).toBe('pin');
@@ -76,30 +105,37 @@ describe('Pipe Tool', () => {
 
   it('should unpin content', async () => {
     const pipeTool = createPipeTool(mockIpfsClient);
-    mockIpfsClient.unpin.mockResolvedValue(undefined);
+    (mockIpfsClient.unpin as Mock).mockResolvedValue(undefined);
 
     const result = await pipeTool.call({
       action: 'unpin',
       cid: 'testCid'
     });
 
-    expect(mockIpfsClient.unpin).toHaveBeenCalledWith('testCid');
+    expect(mockIpfsClient.unpin).toHaveBeenCalledWith('testCid', 'private');
     expect(result.success).toBe(true);
     expect(result.cid).toBe('testCid');
     expect(result.metadata.action).toBe('unpin');
   });
 
   it('should get schema', async () => {
-    const pipeTool = createPipeTool(mockIpfsClient);
-    const mockSchema = { type: 'object', properties: {} };
-    mockIpfsClient.fetch.mockResolvedValue(mockSchema);
+    const mockSchema: PipeRecord = {
+      type: 'schema',
+      content: { type: 'object', properties: {} },
+      scope: 'private',
+      pinned: false,
+      accessPolicy: { hiddenFromLLM: false }
+    };
 
+    (mockIpfsClient.fetch as Mock).mockResolvedValue(mockSchema);
+
+    const pipeTool = createPipeTool(mockIpfsClient);
     const result = await pipeTool.call({
       action: 'getSchema',
       cid: 'testCid'
     });
 
-    expect(mockIpfsClient.fetch).toHaveBeenCalledWith('testCid');
+    expect(mockIpfsClient.fetch).toHaveBeenCalledWith('testCid', 'private');
     expect(result.schema).toEqual(mockSchema);
     expect(result.cid).toBe('testCid');
     expect(result.metadata.action).toBe('getSchema');
@@ -115,9 +151,17 @@ describe('Pipe Tool', () => {
   });
 
   it('should respect scope parameter', async () => {
-    const pipeTool = createPipeTool(mockIpfsClient);
-    mockIpfsClient.fetch.mockResolvedValue({ data: 'test' });
+    const mockContent: PipeRecord = {
+      type: 'data',
+      content: { test: 'data' },
+      scope: 'public',
+      pinned: false,
+      accessPolicy: { hiddenFromLLM: false }
+    };
 
+    (mockIpfsClient.fetch as Mock).mockResolvedValue(mockContent);
+
+    const pipeTool = createPipeTool(mockIpfsClient);
     const result = await pipeTool.call({
       action: 'retrieve',
       cid: 'testCid',
